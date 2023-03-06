@@ -1,0 +1,1 @@
+args = ["create", "tests/create/simple.bcf"]

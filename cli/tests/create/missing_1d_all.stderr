@@ -1,0 +1,4 @@
+[sfs  warn] Skipping record at position 'chr1:1' due to missing genotype. This error will be shown only once, with a summary at the end.
+[sfs  warn] Skipping record at position 'chr1:4' due to missing genotype allele. This error will be shown only once, with a summary at the end.
+[sfs  warn] Skipped 3 records due to missing genotype.
+[sfs  warn] Skipped 1 records due to missing genotype allele.

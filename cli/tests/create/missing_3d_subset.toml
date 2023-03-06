@@ -1,0 +1,6 @@
+args = [
+  "create",
+  "-s",
+  "sample0=group0,sample1=group1,sample4=group4",
+  "tests/create/missing.bcf"
+]
