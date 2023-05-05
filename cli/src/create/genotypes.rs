@@ -8,7 +8,7 @@ use super::samples::SampleList;
 pub struct Genotypes(Vec<Genotype>);
 
 impl Genotypes {
-    pub fn try_from_iter<I>(vcf_genotypes: I) -> Result<Self, ParseGenotypesError>
+    fn try_from_iter<I>(vcf_genotypes: I) -> Result<Self, ParseGenotypesError>
     where
         I: IntoIterator<Item = Option<VcfGenotype>>,
     {

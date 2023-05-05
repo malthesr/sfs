@@ -15,25 +15,74 @@ use super::{
     Create,
 };
 
-type Reader = bcf::Reader<bgzf::Reader<Box<dyn io::Read>>>;
-
 pub struct Runner {
-    reader: Reader,
-    header: vcf::Header,
-    string_maps: bcf::header::StringMaps,
+    reader: Reader<Box<dyn io::Read>>,
     sample_list: SampleList,
     warnings: Warnings,
     strict: bool,
 }
 
-impl Runner {
-    pub fn new(reader: Reader, header: vcf::Header, sample_list: SampleList, strict: bool) -> Self {
+pub struct Reader<R> {
+    inner: bcf::Reader<bgzf::Reader<R>>,
+    header: vcf::Header,
+    string_maps: bcf::header::StringMaps,
+    buf: bcf::Record,
+}
+
+impl<R> Reader<R>
+where
+    R: io::Read,
+{
+    pub fn new(inner: bgzf::Reader<R>) -> io::Result<Self> {
+        let mut inner = bcf::Reader::from(inner);
+
+        inner.read_file_format()?;
+        let header = inner
+            .read_header()?
+            .parse()
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         let string_maps = bcf::header::StringMaps::from(&header);
 
-        Self {
-            reader,
+        Ok(Self {
+            inner,
             header,
             string_maps,
+            buf: bcf::Record::default(),
+        })
+    }
+
+    pub fn contig(&self) -> &str {
+        self.string_maps
+            .contigs()
+            .get_index(self.buf.chromosome_id())
+            .unwrap_or("[unknown]")
+    }
+
+    pub fn position(&self) -> usize {
+        self.buf.position().into()
+    }
+
+    pub fn read_genotype_subset(
+        &mut self,
+        sample_list: &SampleList,
+    ) -> io::Result<Option<Result<Genotypes, ParseGenotypesError>>> {
+        if self.inner.read_record(&mut self.buf)? > 0 {
+            self.buf
+                .genotypes()
+                .try_into_vcf_record_genotypes(&self.header, self.string_maps.strings())?
+                .genotypes()
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+                .map(|genotypes| Some(Genotypes::try_subset_from_iter(genotypes, sample_list)))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl Runner {
+    pub fn new(reader: Reader<Box<dyn io::Read>>, sample_list: SampleList, strict: bool) -> Self {
+        Self {
+            reader,
             sample_list,
             warnings: Warnings::default(),
             strict,
@@ -44,29 +93,21 @@ impl Runner {
         let mut sfs = Sfs::zeros(self.sample_list.shape());
         let mut allele_counts = AlleleCounts::zeros(sfs.dimensions());
 
-        let mut record = bcf::Record::default();
-
-        while self.reader.read_record(&mut record)? > 0 {
-            let genotypes = record
-                .genotypes()
-                .try_into_vcf_record_genotypes(&self.header, self.string_maps.strings())?
-                .genotypes()?;
-
-            let genotypes = match Genotypes::try_subset_from_iter(genotypes, &self.sample_list) {
-                Ok(genotypes) => genotypes,
+        while let Some(genotypes) = self.reader.read_genotype_subset(&self.sample_list)? {
+            match genotypes {
+                Ok(genotypes) => {
+                    allele_counts.add(&genotypes, &self.sample_list);
+                    sfs[&allele_counts] += 1.0;
+                    allele_counts.reset();
+                }
                 Err(error) => {
                     if self.strict {
                         Err(error)?
                     } else {
-                        self.warnings.warn_once(&record, &self.string_maps, error);
-                        continue;
+                        self.warnings.warn_once(&self.reader, error);
                     }
                 }
-            };
-
-            allele_counts.add(&genotypes, &self.sample_list);
-            sfs[&allele_counts] += 1.0;
-            allele_counts.reset();
+            }
         }
 
         self.warnings.summarize();
@@ -95,19 +136,17 @@ impl TryFrom<&Create> for Runner {
         let bgzf_reader = bgzf::reader::Builder::default()
             .set_worker_count(args.threads)
             .build_from_reader(inner);
-        let mut reader = bcf::Reader::from(bgzf_reader);
-        reader.read_file_format()?;
-        let header = reader.read_header()?.parse()?;
+        let reader = Reader::new(bgzf_reader)?;
 
         let sample_list = if let Some(path) = &args.samples_file {
-            SampleList::from_path(path, &header)??
+            SampleList::from_path(path, &reader.header)??
         } else if let Some(names) = &args.samples {
-            SampleList::from_names(names, &header)?
+            SampleList::from_names(names, &reader.header)?
         } else {
-            SampleList::from_all_samples(&header)
+            SampleList::from_all_samples(&reader.header)
         };
 
-        Ok(Self::new(reader, header, sample_list, args.strict))
+        Ok(Self::new(reader, sample_list, args.strict))
     }
 }
 
@@ -125,18 +164,13 @@ impl Warnings {
         self.counts.get_mut(error as u8 as usize).unwrap()
     }
 
-    pub fn warn_once(
-        &mut self,
-        record: &bcf::Record,
-        string_maps: &bcf::header::StringMaps,
-        error: ParseGenotypesError,
-    ) {
+    pub fn warn_once<R>(&mut self, reader: &Reader<R>, error: ParseGenotypesError)
+    where
+        R: io::Read,
+    {
         if self.count(error) == 0 {
-            let position = record.position();
-            let contig = string_maps
-                .contigs()
-                .get_index(record.chromosome_id())
-                .unwrap_or("[unknown]");
+            let position = reader.position();
+            let contig = reader.contig();
             let reason = error.reason();
 
             log::warn!(
