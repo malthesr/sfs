@@ -1,104 +1,86 @@
-use std::{fs::File, io};
+use anyhow::{anyhow, Error};
 
-use anyhow::{Context, Error};
-
-use clap::CommandFactory;
-use noodles_bcf as bcf;
-use noodles_bgzf as bgzf;
-use noodles_vcf as vcf;
-
-use sfs::Sfs;
+use sfs::{Sfs, Shape};
 
 use super::{
-    genotypes::{AlleleCounts, Genotypes, ParseGenotypesError},
-    samples::SampleList,
-    Create,
+    reader_from_stdin_or_path, Create, GenotypeReader, OrderedSampleList, ParseGenotypeError,
+    SampleMap,
 };
 
+type Reader = Box<dyn GenotypeReader>;
+
 pub struct Runner {
-    reader: Reader<Box<dyn io::Read>>,
-    sample_list: SampleList,
+    reader: Reader,
+    sample_list: OrderedSampleList,
     warnings: Warnings,
     strict: bool,
 }
 
-pub struct Reader<R> {
-    inner: bcf::Reader<bgzf::Reader<R>>,
-    header: vcf::Header,
-    string_maps: bcf::header::StringMaps,
-    buf: bcf::Record,
-}
+impl Runner {
+    fn shape(&self) -> Shape {
+        let group_id_iter = self.sample_list.iter_groups().filter_map(|&id| id);
 
-impl<R> Reader<R>
-where
-    R: io::Read,
-{
-    pub fn new(inner: bgzf::Reader<R>) -> io::Result<Self> {
-        let mut inner = bcf::Reader::from(inner);
+        let n = 1 + group_id_iter.clone().max().expect("empty samples list");
+        let mut shape = vec![1; n];
 
-        inner.read_file_format()?;
-        let header = inner
-            .read_header()?
-            .parse()
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let string_maps = bcf::header::StringMaps::from(&header);
+        for x in group_id_iter {
+            shape[x] += 2;
+        }
+
+        Shape(shape)
+    }
+
+    pub fn new(
+        reader: Box<dyn GenotypeReader>,
+        sample_map: SampleMap,
+        strict: bool,
+    ) -> Result<Self, Error> {
+        for name in sample_map.sample_names() {
+            if !reader.sample_names().contains(name) {
+                let message = format!("sample {name} was not found in input file");
+                if strict {
+                    return Err(anyhow!(message));
+                } else {
+                    log::warn!("{message}");
+                }
+            }
+        }
+
+        let sample_list =
+            OrderedSampleList::from_map_and_ordered_samples(&sample_map, reader.sample_names());
 
         Ok(Self {
-            inner,
-            header,
-            string_maps,
-            buf: bcf::Record::default(),
-        })
-    }
-
-    pub fn contig(&self) -> &str {
-        self.string_maps
-            .contigs()
-            .get_index(self.buf.chromosome_id())
-            .unwrap_or("[unknown]")
-    }
-
-    pub fn position(&self) -> usize {
-        self.buf.position().into()
-    }
-
-    pub fn read_genotype_subset(
-        &mut self,
-        sample_list: &SampleList,
-    ) -> io::Result<Option<Result<Genotypes, ParseGenotypesError>>> {
-        if self.inner.read_record(&mut self.buf)? > 0 {
-            self.buf
-                .genotypes()
-                .try_into_vcf_record_genotypes(&self.header, self.string_maps.strings())?
-                .genotypes()
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
-                .map(|genotypes| Some(Genotypes::try_subset_from_iter(genotypes, sample_list)))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-impl Runner {
-    pub fn new(reader: Reader<Box<dyn io::Read>>, sample_list: SampleList, strict: bool) -> Self {
-        Self {
             reader,
             sample_list,
             warnings: Warnings::default(),
             strict,
-        }
+        })
     }
 
     pub fn run(&mut self) -> Result<Sfs, Error> {
-        let mut sfs = Sfs::from_zeros(self.sample_list.shape());
-        let mut allele_counts = AlleleCounts::zeros(sfs.dimensions());
+        let mut sfs = Sfs::from_zeros(self.shape());
+        let mut index = vec![0; sfs.dimensions()];
 
-        while let Some(genotypes) = self.reader.read_genotype_subset(&self.sample_list)? {
+        let subset_mask = self
+            .sample_list
+            .iter_groups()
+            .map(Option::is_some)
+            .collect::<Vec<_>>();
+        while let Some(genotypes) = self.reader.read_genotype_subset(&subset_mask)? {
             match genotypes {
                 Ok(genotypes) => {
-                    allele_counts.add(&genotypes, &self.sample_list);
-                    sfs[&allele_counts] += 1.0;
-                    allele_counts.reset();
+                    genotypes
+                        .iter()
+                        .zip(
+                            self.sample_list
+                                .iter_groups()
+                                .filter_map(|&group_id| group_id),
+                        )
+                        .for_each(|(&genotype, group_id)| {
+                            index[group_id] += genotype as u8 as usize;
+                        });
+
+                    sfs[&index] += 1.0;
                 }
                 Err(error) => {
                     if self.strict {
@@ -108,6 +90,8 @@ impl Runner {
                     }
                 }
             }
+
+            index.iter_mut().for_each(|x| *x = 0);
         }
 
         self.warnings.summarize();
@@ -120,57 +104,38 @@ impl TryFrom<&Create> for Runner {
     type Error = Error;
 
     fn try_from(args: &Create) -> Result<Self, Self::Error> {
-        let inner: Box<dyn io::Read> = if let Some(path) = &args.input {
-            Box::new(File::open(path).with_context(|| {
-                format!("Failed to open BCF from provided path '{}'", path.display())
-            })?)
-        } else if atty::isnt(atty::Stream::Stdin) {
-            Box::new(io::stdin().lock())
-        } else {
-            Err(
-                clap::Error::new(clap::error::ErrorKind::MissingRequiredArgument)
-                    .with_cmd(&Create::command()),
-            )?
-        };
+        let reader = reader_from_stdin_or_path(args.input.as_ref(), args.threads)?;
 
-        let bgzf_reader = bgzf::reader::Builder::default()
-            .set_worker_count(args.threads)
-            .build_from_reader(inner);
-        let reader = Reader::new(bgzf_reader)?;
-
-        let sample_list = if let Some(path) = &args.samples_file {
-            SampleList::from_path(path, &reader.header)??
+        let sample_map = if let Some(path) = &args.samples_file {
+            SampleMap::from_path(path)??
         } else if let Some(names) = &args.samples {
-            SampleList::from_names(names, &reader.header)?
+            SampleMap::from_names_and_group_names(names.to_vec())?
         } else {
-            SampleList::from_all_samples(&reader.header)
+            SampleMap::from_names_in_single_group(reader.sample_names().to_vec())
         };
 
-        Ok(Self::new(reader, sample_list, args.strict))
+        Self::new(reader, sample_map, args.strict)
     }
 }
 
 #[derive(Clone, Debug, Default)]
 struct Warnings {
-    counts: [usize; ParseGenotypesError::N],
+    counts: [usize; ParseGenotypeError::N],
 }
 
 impl Warnings {
-    pub fn count(&self, error: ParseGenotypesError) -> usize {
+    pub fn count(&self, error: ParseGenotypeError) -> usize {
         self.counts[error as u8 as usize]
     }
 
-    pub fn count_mut(&mut self, error: ParseGenotypesError) -> &mut usize {
+    pub fn count_mut(&mut self, error: ParseGenotypeError) -> &mut usize {
         self.counts.get_mut(error as u8 as usize).unwrap()
     }
 
-    pub fn warn_once<R>(&mut self, reader: &Reader<R>, error: ParseGenotypesError)
-    where
-        R: io::Read,
-    {
+    pub fn warn_once(&mut self, reader: &Reader, error: ParseGenotypeError) {
         if self.count(error) == 0 {
-            let position = reader.position();
-            let contig = reader.contig();
+            let position = reader.current_position();
+            let contig = reader.current_contig();
             let reason = error.reason();
 
             log::warn!(
@@ -183,7 +148,7 @@ impl Warnings {
     }
 
     pub fn summarize(&self) {
-        for error in ParseGenotypesError::VARIANTS {
+        for error in ParseGenotypeError::VARIANTS {
             let count = self.count(error);
 
             if count > 0 {

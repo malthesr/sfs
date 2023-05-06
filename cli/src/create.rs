@@ -4,12 +4,14 @@ use anyhow::Error;
 
 use clap::Parser;
 
-mod genotypes;
+mod reader;
+pub use reader::{reader_from_stdin_or_path, Genotype, GenotypeReader, ParseGenotypeError};
 
 mod runner;
 use runner::Runner;
 
 mod samples;
+pub use samples::{OrderedSampleList, ParseSamplesError, SampleMap};
 
 /// Create SFS from BCF.
 #[derive(Debug, Parser)]
