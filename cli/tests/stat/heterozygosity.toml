@@ -1,0 +1,8 @@
+args = [
+  "stat",
+  "-s",
+  "heterozygosity",
+  "-p",
+  "2",
+  "tests/stat/individual.sfs"
+]

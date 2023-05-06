@@ -1,0 +1,6 @@
+args = [
+  "fold",
+  "--precision",
+  "1",
+  "tests/fold/two_populations.sfs"
+]

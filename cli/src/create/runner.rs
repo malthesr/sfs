@@ -90,7 +90,7 @@ impl Runner {
     }
 
     pub fn run(&mut self) -> Result<Sfs, Error> {
-        let mut sfs = Sfs::zeros(self.sample_list.shape());
+        let mut sfs = Sfs::from_zeros(self.sample_list.shape());
         let mut allele_counts = AlleleCounts::zeros(sfs.dimensions());
 
         while let Some(genotypes) = self.reader.read_genotype_subset(&self.sample_list)? {

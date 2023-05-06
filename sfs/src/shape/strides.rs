@@ -69,23 +69,23 @@ mod tests {
         let shape = Shape(vec![5, 4, 9, 2]);
         let strides = shape.strides();
 
-        assert_eq!(strides.flat_index(&shape, &[0, 0, 0, 0]), Some(0));
-        assert_eq!(strides.flat_index(&shape, &[0, 0, 0, 1]), Some(1));
-        assert_eq!(strides.flat_index(&shape, &[0, 0, 1, 0]), Some(2));
-        assert_eq!(strides.flat_index(&shape, &[0, 1, 0, 0]), Some(18));
-        assert_eq!(strides.flat_index(&shape, &[1, 0, 0, 0]), Some(72));
-        assert_eq!(strides.flat_index(&shape, &[4, 3, 8, 1]), Some(359));
+        assert_eq!(strides.flat_index(&shape, [0, 0, 0, 0]), Some(0));
+        assert_eq!(strides.flat_index(&shape, [0, 0, 0, 1]), Some(1));
+        assert_eq!(strides.flat_index(&shape, [0, 0, 1, 0]), Some(2));
+        assert_eq!(strides.flat_index(&shape, [0, 1, 0, 0]), Some(18));
+        assert_eq!(strides.flat_index(&shape, [1, 0, 0, 0]), Some(72));
+        assert_eq!(strides.flat_index(&shape, [4, 3, 8, 1]), Some(359));
     }
 
     #[test]
     fn test_flat_index_dimension_mismatch() {
         let strides = Strides(vec![1]);
 
-        assert_eq!(strides.flat_index(&Shape(vec![1]), &[]), None);
-        assert_eq!(strides.flat_index(&Shape(vec![1]), &[0, 0]), None);
-        assert_eq!(strides.flat_index(&Shape(vec![]), &[0]), None);
-        assert_eq!(strides.flat_index(&Shape(vec![1, 1]), &[0]), None);
-        assert_eq!(strides.flat_index(&Shape(vec![1, 1]), &[0, 0]), None);
+        assert_eq!(strides.flat_index(&Shape(vec![1]), []), None);
+        assert_eq!(strides.flat_index(&Shape(vec![1]), [0, 0]), None);
+        assert_eq!(strides.flat_index(&Shape(vec![]), [0]), None);
+        assert_eq!(strides.flat_index(&Shape(vec![1, 1]), [0]), None);
+        assert_eq!(strides.flat_index(&Shape(vec![1, 1]), [0, 0]), None);
     }
 
     #[test]
@@ -93,9 +93,9 @@ mod tests {
         let shape = Shape(vec![5, 4, 9, 2]);
         let strides = shape.strides();
 
-        assert_eq!(strides.flat_index(&shape, &[5, 3, 8, 1]), None);
-        assert_eq!(strides.flat_index(&shape, &[4, 4, 8, 1]), None);
-        assert_eq!(strides.flat_index(&shape, &[4, 3, 9, 1]), None);
-        assert_eq!(strides.flat_index(&shape, &[4, 3, 8, 2]), None);
+        assert_eq!(strides.flat_index(&shape, [5, 3, 8, 1]), None);
+        assert_eq!(strides.flat_index(&shape, [4, 4, 8, 1]), None);
+        assert_eq!(strides.flat_index(&shape, [4, 3, 9, 1]), None);
+        assert_eq!(strides.flat_index(&shape, [4, 3, 8, 2]), None);
     }
 }

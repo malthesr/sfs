@@ -1,0 +1,7 @@
+args = [
+  "view",
+  "-O",
+  "npy",
+  "tests/view/three_populations.sfs"
+]
+binary = true

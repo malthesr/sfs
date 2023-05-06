@@ -1,0 +1,8 @@
+args = [
+  "view",
+  "-p",
+  "0",
+  "--marginalize-keep",
+  "1,0",
+  "tests/view/three_populations.sfs"
+]

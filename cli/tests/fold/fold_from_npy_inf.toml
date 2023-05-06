@@ -1,0 +1,8 @@
+args = [
+  "fold",
+  "--precision",
+  "0",
+  "--sentry",
+  "inf",
+  "tests/fold/two_populations.npy"
+]

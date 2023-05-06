@@ -1,0 +1,10 @@
+args = [
+  "view",
+  "--marginalize-remove",
+  "0,2",
+  "-O",
+  "text",
+  "--precision",
+  "1",
+  "tests/view/three_populations.npy"
+]

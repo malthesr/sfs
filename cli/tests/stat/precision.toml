@@ -1,0 +1,8 @@
+args = [
+  "stat",
+  "-s",
+  "sum,sum,sum",
+  "--precision",
+  "2,1,10",
+  "tests/stat/two_individuals.sfs"
+]

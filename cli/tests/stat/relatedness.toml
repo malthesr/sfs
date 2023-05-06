@@ -1,0 +1,7 @@
+args = [
+  "stat",
+  "-s",
+  "r0,r1,king",
+  "--header",
+  "tests/stat/two_individuals.sfs"
+]

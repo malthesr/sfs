@@ -7,6 +7,15 @@ use clap::{ArgAction, Parser, Subcommand};
 mod create;
 use create::Create;
 
+mod fold;
+use fold::Fold;
+
+mod stat;
+use stat::Stat;
+
+mod view;
+use view::View;
+
 const NAME: &str = env!("CARGO_BIN_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
@@ -75,12 +84,18 @@ impl Cli {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     Create(Create),
+    Fold(Fold),
+    Stat(Stat),
+    View(View),
 }
 
 impl Command {
     fn run(self) -> Result<(), Error> {
         match self {
             Command::Create(create) => create.run(),
+            Command::Fold(fold) => fold.run(),
+            Command::Stat(stat) => stat.run(),
+            Command::View(view) => view.run(),
         }
     }
 }
@@ -91,6 +106,40 @@ impl TryFrom<Command> for Create {
     fn try_from(command: Command) -> Result<Self, Self::Error> {
         match command {
             Command::Create(create) => Ok(create),
+            _ => Err(command),
+        }
+    }
+}
+
+impl TryFrom<Command> for Fold {
+    type Error = Command;
+
+    fn try_from(command: Command) -> Result<Self, Self::Error> {
+        match command {
+            Command::Fold(fold) => Ok(fold),
+            _ => Err(command),
+        }
+    }
+}
+
+impl TryFrom<Command> for Stat {
+    type Error = Command;
+
+    fn try_from(command: Command) -> Result<Self, Self::Error> {
+        match command {
+            Command::Stat(stat) => Ok(stat),
+            _ => Err(command),
+        }
+    }
+}
+
+impl TryFrom<Command> for View {
+    type Error = Command;
+
+    fn try_from(command: Command) -> Result<Self, Self::Error> {
+        match command {
+            Command::View(view) => Ok(view),
+            _ => Err(command),
         }
     }
 }

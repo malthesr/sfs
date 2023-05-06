@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 mod removed_axis;
 pub use removed_axis::RemovedAxis;
@@ -21,6 +21,28 @@ impl Deref for Axis {
 pub struct Shape(pub Vec<usize>);
 
 impl Shape {
+    pub(crate) fn index_from_flat_unchecked(&self, mut flat: usize) -> Vec<usize> {
+        let mut n = self.iter().product::<usize>();
+        let mut index = vec![0; self.len()];
+        for (i, v) in self.iter().enumerate() {
+            n /= v;
+            index[i] = flat / n;
+            flat %= n;
+        }
+        index
+    }
+
+    pub(crate) fn index_sum_from_flat_unchecked(&self, mut flat: usize) -> usize {
+        let mut n = self.iter().product::<usize>();
+        let mut sum = 0;
+        for v in self.iter() {
+            n /= v;
+            sum += flat / n;
+            flat %= n;
+        }
+        sum
+    }
+
     pub(crate) fn remove_axis(&self, axis: Axis) -> RemovedAxis<Self> {
         RemovedAxis::new(self, axis)
     }
@@ -50,9 +72,30 @@ impl Deref for Shape {
     }
 }
 
+impl fmt::Display for Shape {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self[0])?;
+        for v in self.iter().skip(1) {
+            write!(f, "/{v}")?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_index_from_flat_unchecked() {
+        let shape = Shape(vec![3, 3, 4]);
+
+        assert_eq!(shape.index_from_flat_unchecked(0), vec![0, 0, 0]);
+        assert_eq!(shape.index_from_flat_unchecked(1), vec![0, 0, 1]);
+        assert_eq!(shape.index_from_flat_unchecked(3), vec![0, 0, 3]);
+        assert_eq!(shape.index_from_flat_unchecked(4), vec![0, 1, 0]);
+        assert_eq!(shape.index_from_flat_unchecked(35), vec![2, 2, 3]);
+    }
 
     #[test]
     fn test_strides() {

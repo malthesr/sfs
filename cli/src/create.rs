@@ -36,7 +36,7 @@ pub struct Create {
         use_value_delimiter = true,
         value_delimiter = ',',
         value_parser = parse_key_val,
-        value_name = "SAMPLE[=GROUP]")
+        value_name = "SAMPLE[=GROUP],...")
     ]
     samples: Option<Vec<(String, Option<String>)>>,
 
@@ -75,7 +75,7 @@ impl Create {
         let sfs = runner.run()?;
 
         let precision = self.precision;
-        sfs::io::write_sfs(&mut io::stdout(), &sfs, " ", precision)?;
+        sfs::io::text::write_sfs(&mut io::stdout(), &sfs, precision)?;
 
         Ok(())
     }

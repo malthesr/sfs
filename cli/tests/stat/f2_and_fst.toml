@@ -1,0 +1,6 @@
+args = [
+  "stat",
+  "-s",
+  "f2,fst",
+  "tests/stat/two_populations.sfs"
+]
