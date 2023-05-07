@@ -2,7 +2,7 @@ use std::{fmt, io};
 
 use anyhow::{anyhow, Error};
 
-use sfs::Sfs;
+use sfs_core::Sfs;
 
 use super::{Stat, Statistic};
 
@@ -86,7 +86,8 @@ impl TryFrom<&Stat> for Runner<io::StdoutLock<'static>> {
     type Error = Error;
 
     fn try_from(args: &Stat) -> Result<Self, Self::Error> {
-        let sfs = sfs::io::read::Builder::default().read_from_path_or_stdin(args.path.as_ref())?;
+        let sfs = sfs_core::sfs::io::read::Builder::default()
+            .read_from_path_or_stdin(args.path.as_ref())?;
 
         let statistics = match (&args.precision[..], &args.statistics[..]) {
             (&[precision], statistics) => statistics

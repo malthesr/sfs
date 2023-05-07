@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Error};
 
-use sfs::{Sfs, Shape};
+use sfs_core::sfs::{Sfs, Shape};
 
 use super::{
     reader_from_stdin_or_path, Create, GenotypeReader, OrderedSampleList, ParseGenotypeError,

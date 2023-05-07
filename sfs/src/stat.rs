@@ -3,7 +3,7 @@ use std::{fmt, path::PathBuf};
 use anyhow::Error;
 
 use clap::{Parser, ValueEnum};
-use sfs::{
+use sfs_core::sfs::{
     stat::{Fst, Heterozygosity, King, F2, R0, R1},
     Sfs,
 };

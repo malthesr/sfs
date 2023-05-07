@@ -3,7 +3,8 @@ use std::{fmt, path::PathBuf};
 use anyhow::Error;
 
 use clap::{Parser, ValueEnum};
-use sfs::Axis;
+
+use sfs_core::sfs::Axis;
 
 /// Format, marginalize, and convert SFS.
 #[derive(Debug, Parser)]
@@ -74,19 +75,19 @@ impl fmt::Display for Format {
     }
 }
 
-impl From<Format> for sfs::io::Format {
+impl From<Format> for sfs_core::sfs::io::Format {
     fn from(value: Format) -> Self {
         match value {
-            Format::Npy => sfs::io::Format::Npy,
-            Format::Text => sfs::io::Format::Text,
+            Format::Npy => sfs_core::sfs::io::Format::Npy,
+            Format::Text => sfs_core::sfs::io::Format::Text,
         }
     }
 }
 
 impl View {
     pub fn run(self) -> Result<(), Error> {
-        let mut sfs =
-            sfs::io::read::Builder::default().read_from_path_or_stdin(self.path.as_ref())?;
+        let mut sfs = sfs_core::sfs::io::read::Builder::default()
+            .read_from_path_or_stdin(self.path.as_ref())?;
 
         // If marginalizing, normalize to indices to marginalize away (rather than keep)
         if let Some(axes) = match (self.marginalize_keep, self.marginalize_remove) {
@@ -103,9 +104,9 @@ impl View {
             sfs = sfs.marginalize(&axes)?;
         };
 
-        sfs::io::write::Builder::default()
+        sfs_core::sfs::io::write::Builder::default()
             .set_precision(self.precision)
-            .set_format(sfs::io::Format::from(self.output_format))
+            .set_format(sfs_core::sfs::io::Format::from(self.output_format))
             .write_to_path_or_stdout(self.output, &sfs)?;
 
         Ok(())
