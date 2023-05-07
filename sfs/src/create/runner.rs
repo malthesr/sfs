@@ -1,86 +1,32 @@
-use anyhow::{anyhow, Error};
+use anyhow::Error;
 
-use sfs_core::sfs::{Sfs, Shape};
-
-use super::{
-    reader_from_stdin_or_path, Create, GenotypeReader, OrderedSampleList, ParseGenotypeError,
-    SampleMap,
+use sfs_core::{
+    reader::{ParseGenotypeError, Reader},
+    sfs::Sfs,
 };
-
-type Reader = Box<dyn GenotypeReader>;
 
 pub struct Runner {
     reader: Reader,
-    sample_list: OrderedSampleList,
     warnings: Warnings,
     strict: bool,
 }
 
 impl Runner {
-    fn shape(&self) -> Shape {
-        let group_id_iter = self.sample_list.iter_groups().filter_map(|&id| id);
-
-        let n = 1 + group_id_iter.clone().max().expect("empty samples list");
-        let mut shape = vec![1; n];
-
-        for x in group_id_iter {
-            shape[x] += 2;
-        }
-
-        Shape(shape)
-    }
-
-    pub fn new(
-        reader: Box<dyn GenotypeReader>,
-        sample_map: SampleMap,
-        strict: bool,
-    ) -> Result<Self, Error> {
-        for name in sample_map.sample_names() {
-            if !reader.sample_names().contains(name) {
-                let message = format!("sample {name} was not found in input file");
-                if strict {
-                    return Err(anyhow!(message));
-                } else {
-                    log::warn!("{message}");
-                }
-            }
-        }
-
-        let sample_list =
-            OrderedSampleList::from_map_and_ordered_samples(&sample_map, reader.sample_names());
-
+    pub fn new(reader: Reader, strict: bool) -> Result<Self, Error> {
         Ok(Self {
             reader,
-            sample_list,
             warnings: Warnings::default(),
             strict,
         })
     }
 
     pub fn run(&mut self) -> Result<Sfs, Error> {
-        let mut sfs = Sfs::from_zeros(self.shape());
-        let mut index = vec![0; sfs.dimensions()];
+        let mut sfs = Sfs::from_zeros(self.reader.shape());
 
-        let subset_mask = self
-            .sample_list
-            .iter_groups()
-            .map(Option::is_some)
-            .collect::<Vec<_>>();
-        while let Some(genotypes) = self.reader.read_genotype_subset(&subset_mask)? {
-            match genotypes {
-                Ok(genotypes) => {
-                    genotypes
-                        .iter()
-                        .zip(
-                            self.sample_list
-                                .iter_groups()
-                                .filter_map(|&group_id| group_id),
-                        )
-                        .for_each(|(&genotype, group_id)| {
-                            index[group_id] += genotype as u8 as usize;
-                        });
-
-                    sfs[&index] += 1.0;
+        while let Some(allele_counts) = self.reader.read_allele_counts()? {
+            match allele_counts {
+                Ok(allele_counts) => {
+                    sfs[allele_counts] += 1.0;
                 }
                 Err(error) => {
                     if self.strict {
@@ -90,8 +36,6 @@ impl Runner {
                     }
                 }
             }
-
-            index.iter_mut().for_each(|x| *x = 0);
         }
 
         self.warnings.summarize();
@@ -100,27 +44,17 @@ impl Runner {
     }
 }
 
-impl TryFrom<&Create> for Runner {
-    type Error = Error;
-
-    fn try_from(args: &Create) -> Result<Self, Self::Error> {
-        let reader = reader_from_stdin_or_path(args.input.as_ref(), args.threads)?;
-
-        let sample_map = if let Some(path) = &args.samples_file {
-            SampleMap::from_path(path)??
-        } else if let Some(names) = &args.samples {
-            SampleMap::from_names_and_group_names(names.to_vec())?
-        } else {
-            SampleMap::from_names_in_single_group(reader.sample_names().to_vec())
-        };
-
-        Self::new(reader, sample_map, args.strict)
-    }
-}
+const NUMBER_OF_ERRORS: usize = 4;
+const ERROR_VARIANTS: [ParseGenotypeError; NUMBER_OF_ERRORS] = [
+    ParseGenotypeError::MissingGenotype,
+    ParseGenotypeError::MissingAllele,
+    ParseGenotypeError::Multiallelic,
+    ParseGenotypeError::NotDiploid,
+];
 
 #[derive(Clone, Debug, Default)]
 struct Warnings {
-    counts: [usize; ParseGenotypeError::N],
+    counts: [usize; NUMBER_OF_ERRORS],
 }
 
 impl Warnings {
@@ -148,7 +82,7 @@ impl Warnings {
     }
 
     pub fn summarize(&self) {
-        for error in ParseGenotypeError::VARIANTS {
+        for error in ERROR_VARIANTS {
             let count = self.count(error);
 
             if count > 0 {

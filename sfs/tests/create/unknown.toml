@@ -4,3 +4,4 @@ args = [
   "tests/create/unknown.samples",
   "tests/create/simple.bcf"
 ]
+status = "failed"

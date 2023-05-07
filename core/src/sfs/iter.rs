@@ -114,7 +114,7 @@ impl<'a, const N: bool> FusedIterator for FrequenciesIter<'a, N> {}
 mod tests {
     use super::*;
 
-    use crate::Shape;
+    use crate::sfs::Shape;
 
     #[test]
     fn test_iter_indices_1d() {

@@ -69,7 +69,7 @@ where
 mod tests {
     use super::*;
 
-    use crate::Shape;
+    use crate::sfs::Shape;
 
     #[test]
     #[should_panic]

@@ -1,20 +1,19 @@
-use std::io;
+use std::{fs::File, io, num::NonZeroUsize, path::Path};
 
+use bcf::lazy::Record as BcfRecord;
 use noodles_bcf as bcf;
-
 use noodles_bgzf as bgzf;
-
 use noodles_vcf as vcf;
-use vcf::record::genotypes::genotype::field::value::genotype::Genotype as VcfGenotype;
+use noodles_vcf::record::genotypes::sample::value::genotype::Genotype as VcfGenotype;
 
-use super::{Genotype, GenotypeReader, ParseGenotypeError};
+use super::{sample_map::Sample, Genotype, GenotypeReader, ParseGenotypeError};
 
 pub struct Reader<R> {
     pub inner: bcf::Reader<bgzf::Reader<R>>,
     pub header: vcf::Header,
     pub string_maps: bcf::header::StringMaps,
-    pub sample_names: Vec<String>,
-    pub buf: bcf::Record,
+    pub samples: Vec<Sample>,
+    pub buf: BcfRecord,
 }
 
 impl<R> Reader<R>
@@ -25,25 +24,23 @@ where
         let mut inner = bcf::Reader::from(inner);
 
         inner.read_file_format()?;
-        let header = inner
-            .read_header()?
-            .parse()
+        let header = inner.read_header()?;
+        let string_maps = bcf::header::StringMaps::try_from(&header)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let string_maps = bcf::header::StringMaps::from(&header);
 
-        let sample_names = header.sample_names().iter().cloned().collect();
+        let samples = header.sample_names().iter().cloned().map(Sample).collect();
 
         Ok(Self {
             inner,
             header,
             string_maps,
-            sample_names,
-            buf: bcf::Record::default(),
+            samples,
+            buf: BcfRecord::default(),
         })
     }
 
     fn read_genotypes(&mut self) -> io::Result<Option<Vec<Option<VcfGenotype>>>> {
-        if self.inner.read_record(&mut self.buf)? > 0 {
+        if self.inner.read_lazy_record(&mut self.buf)? > 0 {
             let vcf_genotypes = self
                 .buf
                 .genotypes()
@@ -55,6 +52,29 @@ where
         } else {
             Ok(None)
         }
+    }
+}
+
+impl Reader<File> {
+    pub fn from_path<P>(path: P, threads: NonZeroUsize) -> io::Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        let bgzf_reader = bgzf::reader::Builder::default()
+            .set_worker_count(threads)
+            .build_from_path(path)?;
+
+        Self::new(bgzf_reader)
+    }
+}
+
+impl Reader<io::StdinLock<'static>> {
+    pub fn from_stdin(threads: NonZeroUsize) -> io::Result<Self> {
+        let bgzf_reader = bgzf::reader::Builder::default()
+            .set_worker_count(threads)
+            .build_from_reader(io::stdin().lock());
+
+        Self::new(bgzf_reader)
     }
 }
 
@@ -73,22 +93,17 @@ where
         self.buf.position().into()
     }
 
-    fn read_genotype_subset(
-        &mut self,
-        subset_mask: &[bool],
-    ) -> io::Result<Option<Result<Vec<Genotype>, ParseGenotypeError>>> {
+    fn read_genotypes(&mut self) -> io::Result<Option<Vec<Result<Genotype, ParseGenotypeError>>>> {
         match self.read_genotypes()? {
             Some(vcf_genotypes) => {
                 let genotypes = vcf_genotypes
                     .into_iter()
-                    .zip(subset_mask)
-                    .filter_map(|(vcf_genotype, keep)| keep.then_some(vcf_genotype))
                     .map(|vcf_genotype| {
                         vcf_genotype
                             .ok_or(ParseGenotypeError::MissingGenotype)
                             .and_then(Genotype::try_from)
                     })
-                    .collect::<Result<Vec<_>, _>>();
+                    .collect::<Vec<Result<_, _>>>();
 
                 Ok(Some(genotypes))
             }
@@ -96,8 +111,8 @@ where
         }
     }
 
-    fn sample_names(&self) -> &[String] {
-        &self.sample_names
+    fn samples(&self) -> &[Sample] {
+        &self.samples
     }
 }
 

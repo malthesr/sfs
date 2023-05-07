@@ -4,4 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+indexmap = "1"
 nom = "7"
+noodles-bcf = "0.25"
+noodles-bgzf = "0.21"
+noodles-vcf = "0.29"

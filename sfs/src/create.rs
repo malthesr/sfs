@@ -4,14 +4,9 @@ use anyhow::Error;
 
 use clap::Parser;
 
-mod reader;
-pub use reader::{reader_from_stdin_or_path, Genotype, GenotypeReader, ParseGenotypeError};
-
 mod runner;
 use runner::Runner;
-
-mod samples;
-pub use samples::{OrderedSampleList, ParseSamplesError, SampleMap};
+use sfs_core::reader;
 
 /// Create SFS from BCF.
 #[derive(Debug, Parser)]
@@ -72,8 +67,19 @@ fn parse_key_val(s: &str) -> Result<(String, Option<String>), clap::Error> {
 
 impl Create {
     pub fn run(self) -> Result<(), Error> {
-        let mut runner = Runner::try_from(&self)?;
+        let builder = reader::Builder::default().set_threads(self.threads);
 
+        let builder = if let Some(samples_file) = self.samples_file {
+            builder.set_samples_file(samples_file)?
+        } else if let Some(samples) = self.samples {
+            builder.set_samples(samples)?
+        } else {
+            builder
+        };
+
+        let reader = builder.build_from_path_or_stdin(self.input.as_ref())?;
+
+        let mut runner = Runner::new(reader, self.strict)?;
         let sfs = runner.run()?;
 
         let precision = self.precision;
