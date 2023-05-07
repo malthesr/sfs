@@ -1,6 +1,6 @@
 use std::iter::FusedIterator;
 
-use crate::{Axis, Sfs, View};
+use super::{Axis, Sfs, View};
 
 #[derive(Debug)]
 pub struct AxisIter<'a, const N: bool> {

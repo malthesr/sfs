@@ -4,10 +4,19 @@ use std::{
     ops::{Index, IndexMut, Range},
 };
 
-use crate::{shape::Strides, Axis, Shape, View};
+pub mod io;
 
-mod iter;
-pub use iter::{AxisIter, FrequenciesIter, IndicesIter};
+pub mod iter;
+use iter::{AxisIter, FrequenciesIter, IndicesIter};
+
+mod shape;
+use shape::Strides;
+pub use shape::{Axis, Shape};
+
+pub mod stat;
+
+mod view;
+pub use view::View;
 
 pub type NormSfs = Sfs<true>;
 

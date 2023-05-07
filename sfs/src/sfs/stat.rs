@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{NormSfs, Sfs, Shape};
+use super::{NormSfs, Sfs, Shape};
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct F2(pub f64);

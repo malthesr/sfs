@@ -9,7 +9,7 @@
 
 use std::io;
 
-use crate::{sfs::Sfs, Shape};
+use crate::sfs::{Sfs, Shape};
 
 mod header;
 use header::{Endian, Header, HeaderDict, Type, TypeDescriptor, Version};

@@ -11,7 +11,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::{Sfs, Shape};
+use crate::sfs::{Sfs, Shape};
 
 /// The text format start string.
 pub(crate) const START: [u8; 6] = *b"#SHAPE";

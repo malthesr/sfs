@@ -1,4 +1,4 @@
-use crate::{
+use super::{
     shape::{RemovedAxis, Strides},
     Sfs, Shape,
 };

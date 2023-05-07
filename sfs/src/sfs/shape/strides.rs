@@ -1,8 +1,6 @@
 use std::ops::Deref;
 
-use crate::Shape;
-
-use super::{Axis, RemovedAxis};
+use super::{Axis, RemovedAxis, Shape};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Strides(pub Vec<usize>);
