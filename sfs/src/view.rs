@@ -75,18 +75,18 @@ impl fmt::Display for Format {
     }
 }
 
-impl From<Format> for sfs_core::sfs::io::Format {
+impl From<Format> for sfs_core::spectrum::io::Format {
     fn from(value: Format) -> Self {
         match value {
-            Format::Npy => sfs_core::sfs::io::Format::Npy,
-            Format::Text => sfs_core::sfs::io::Format::Text,
+            Format::Npy => sfs_core::spectrum::io::Format::Npy,
+            Format::Text => sfs_core::spectrum::io::Format::Text,
         }
     }
 }
 
 impl View {
     pub fn run(self) -> Result<(), Error> {
-        let mut sfs = sfs_core::sfs::io::read::Builder::default()
+        let mut sfs = sfs_core::spectrum::io::read::Builder::default()
             .read_from_path_or_stdin(self.path.as_ref())?;
 
         // If marginalizing, normalize to indices to marginalize away (rather than keep)
@@ -104,9 +104,9 @@ impl View {
             sfs = sfs.marginalize(&axes)?;
         };
 
-        sfs_core::sfs::io::write::Builder::default()
+        sfs_core::spectrum::io::write::Builder::default()
             .set_precision(self.precision)
-            .set_format(sfs_core::sfs::io::Format::from(self.output_format))
+            .set_format(sfs_core::spectrum::io::Format::from(self.output_format))
             .write_to_path_or_stdout(self.output, &sfs)?;
 
         Ok(())

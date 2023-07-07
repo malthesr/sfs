@@ -1,6 +1,7 @@
 use std::{
     cmp::Ordering,
     fmt,
+    marker::PhantomData,
     ops::{Index, IndexMut, Range},
 };
 
@@ -13,14 +14,33 @@ pub mod stat;
 
 use crate::array::{Array, Axis, Shape, ShapeError};
 
-pub type NormSfs = Sfs<true>;
+mod seal {
+    #![deny(missing_docs)]
+    pub trait Sealed {}
+}
+use seal::Sealed;
+pub trait State: Sealed {}
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Sfs<const N: bool = false> {
+#[derive(Copy, Clone, Debug)]
+pub struct Frequencies;
+impl Sealed for Frequencies {}
+impl State for Frequencies {}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct Counts;
+impl Sealed for Counts {}
+impl State for Counts {}
+
+pub type Sfs = Spectrum<Frequencies>;
+pub type Scs = Spectrum<Counts>;
+
+#[derive(Debug, PartialEq)]
+pub struct Spectrum<S: State> {
     array: Array,
+    state: PhantomData<S>,
 }
 
-impl<const N: bool> Sfs<N> {
+impl<S: State> Spectrum<S> {
     pub fn dimensions(&self) -> usize {
         self.array.dimensions()
     }
@@ -29,13 +49,16 @@ impl<const N: bool> Sfs<N> {
         self.array.elements()
     }
 
-    pub fn shape(&self) -> &Shape {
-        self.array.shape()
+    pub fn into_normalized(mut self) -> Sfs {
+        self.normalize();
+        self.into_state_unchecked()
     }
 
-    pub fn into_normalized(mut self) -> NormSfs {
-        self.normalize();
-        self.with_normalization()
+    fn into_state_unchecked<R: State>(self) -> Spectrum<R> {
+        Spectrum {
+            array: self.array,
+            state: PhantomData,
+        }
     }
 
     pub fn iter_frequencies(&self) -> FrequenciesIter<'_> {
@@ -75,13 +98,11 @@ impl<const N: bool> Sfs<N> {
     }
 
     fn marginalize_axis(&self, axis: Axis) -> Self {
-        Self {
-            array: self.array.sum(axis),
-        }
+        Scs::from(self.array.sum(axis)).into_state_unchecked()
     }
 
     fn marginalize_unchecked(&self, axes: &[Axis]) -> Self {
-        let mut sfs = self.clone();
+        let mut spectrum = self.clone();
 
         // As we marginalize out axes one by one, the axes shift down,
         // so we subtract the number already removed and rely on axes having been sorted
@@ -89,10 +110,10 @@ impl<const N: bool> Sfs<N> {
             .enumerate()
             .map(|(removed, original)| Axis(original.0 - removed))
             .for_each(|axis| {
-                sfs = sfs.marginalize_axis(axis);
+                spectrum = spectrum.marginalize_axis(axis);
             });
 
-        sfs
+        spectrum
     }
 
     pub fn normalize(&mut self) {
@@ -100,16 +121,16 @@ impl<const N: bool> Sfs<N> {
         self.array.iter_mut().for_each(|x| *x /= sum);
     }
 
+    pub fn shape(&self) -> &Shape {
+        self.array.shape()
+    }
+
     pub fn sum(&self) -> f64 {
         self.array.iter().sum::<f64>()
     }
-
-    fn with_normalization<const M: bool>(self) -> Sfs<M> {
-        Sfs { array: self.array }
-    }
 }
 
-impl Sfs {
+impl Scs {
     pub fn new<S>(data: Vec<f64>, shape: S) -> Result<Self, ShapeError>
     where
         Shape: From<S>,
@@ -194,13 +215,25 @@ impl Sfs {
     }
 }
 
-impl From<Array> for Sfs {
-    fn from(array: Array) -> Self {
-        Self { array }
+impl<S: State> Clone for Spectrum<S> {
+    fn clone(&self) -> Self {
+        Self {
+            array: self.array.clone(),
+            state: PhantomData,
+        }
     }
 }
 
-impl<I, const N: bool> Index<I> for Sfs<N>
+impl From<Array> for Scs {
+    fn from(array: Array) -> Self {
+        Self {
+            array,
+            state: PhantomData,
+        }
+    }
+}
+
+impl<I, S: State> Index<I> for Spectrum<S>
 where
     I: AsRef<[usize]>,
 {
@@ -211,7 +244,7 @@ where
     }
 }
 
-impl<I, const N: bool> IndexMut<I> for Sfs<N>
+impl<I, S: State> IndexMut<I> for Spectrum<S>
 where
     I: AsRef<[usize]>,
 {
@@ -235,11 +268,11 @@ impl fmt::Display for MarginalizationError {
             }
             MarginalizationError::AxisOutOfBounds { axis, dimensions } => write!(
                 f,
-                "cannot marginalize axis {axis} in SFS with {dimensions} dimensions"
+                "cannot marginalize axis {axis} in spectrum with {dimensions} dimensions"
             ),
             MarginalizationError::TooManyAxes { axes, dimensions } => write!(
                 f,
-                "cannot marginalize a total of {axes} axes in SFS with {dimensions} dimensions"
+                "cannot marginalize a total of {axes} axes in spectrum with {dimensions} dimensions"
             ),
         }
     }
@@ -253,94 +286,91 @@ mod tests {
 
     #[test]
     fn test_fold_4() {
-        let sfs = Sfs::from_range(0..4, Shape(vec![4])).unwrap();
-        let expected = Sfs::new(vec![3., 3., 0., 0.], Shape(vec![4])).unwrap();
-
-        assert_eq!(sfs.fold(0.), expected);
+        let scs = Scs::from_range(0..4, vec![4]).unwrap();
+        let expected = Scs::new(vec![3., 3., 0., 0.], vec![4]).unwrap();
+        assert_eq!(scs.fold(0.), expected);
     }
 
     #[test]
     fn test_fold_5() {
-        let sfs = Sfs::from_range(0..5, Shape(vec![5])).unwrap();
-
-        let expected = Sfs::new(vec![4., 4., 2., -1., -1.], Shape(vec![5])).unwrap();
-
-        assert_eq!(sfs.fold(-1.), expected);
+        let scs = Scs::from_range(0..5, vec![5]).unwrap();
+        let expected = Scs::new(vec![4., 4., 2., -1., -1.], vec![5]).unwrap();
+        assert_eq!(scs.fold(-1.), expected);
     }
 
     #[test]
     fn test_fold_3x3() {
-        let sfs = Sfs::from_range(0..9, Shape(vec![3, 3])).unwrap();
+        let scs = Scs::from_range(0..9, vec![3, 3]).unwrap();
 
         #[rustfmt::skip]
-        let expected = Sfs::new(
+        let expected = Scs::new(
             vec![
                 8., 8., 4.,
                 8., 4., 0.,
                 4., 0., 0.,
             ],
-            Shape(vec![3, 3])
+            vec![3, 3]
         ).unwrap();
 
-        assert_eq!(sfs.fold(0.), expected);
+        assert_eq!(scs.fold(0.), expected);
     }
 
     #[test]
     fn test_fold_2x4() {
-        let sfs = Sfs::from_range(0..8, Shape(vec![2, 4])).unwrap();
+        let scs = Scs::from_range(0..8, vec![2, 4]).unwrap();
 
         #[rustfmt::skip]
-        let expected = Sfs::new(
+        let expected = Scs::new(
             vec![
                 7., 7.,            3.5, f64::INFINITY,
                 7., 3.5, f64::INFINITY, f64::INFINITY,
             ],
-            Shape(vec![2, 4])
+            vec![2, 4]
         ).unwrap();
 
-        assert_eq!(sfs.fold(f64::INFINITY), expected);
+        assert_eq!(scs.fold(f64::INFINITY), expected);
     }
 
     #[test]
     fn test_fold_3x4() {
-        let sfs = Sfs::from_range(0..12, Shape(vec![3, 4])).unwrap();
+        let scs = Scs::from_range(0..12, vec![3, 4]).unwrap();
 
         #[rustfmt::skip]
-        let expected = Sfs::new(
+        let expected = Scs::new(
             vec![
                 11., 11., 11., 0.,
                 11., 11.,  0., 0.,
                 11.,  0.,  0., 0.,
             ],
-            Shape(vec![3, 4])
+            vec![3, 4]
         ).unwrap();
 
-        assert_eq!(sfs.fold(0.), expected);
+        assert_eq!(scs.fold(0.), expected);
     }
 
     #[test]
     fn test_fold_3x7() {
-        let sfs = Sfs::from_range(0..21, Shape(vec![3, 7])).unwrap();
+        let scs = Scs::from_range(0..21, vec![3, 7]).unwrap();
 
         #[rustfmt::skip]
-        let expected = Sfs::new(
+        let expected = Scs::new(
             vec![
                 20., 20., 20., 20., 10., 0., 0.,
                 20., 20., 20., 10.,  0., 0., 0.,
                 20., 20., 10.,  0.,  0., 0., 0.,
             ],
-            Shape(vec![3, 7])
+            vec![3, 7]
         ).unwrap();
 
-        assert_eq!(sfs.fold(0.), expected);
+        assert_eq!(scs.fold(0.), expected);
     }
 
     #[test]
     fn test_fold_2x2x2() {
-        let sfs = Sfs::from_range(0..8, Shape(vec![2, 2, 2])).unwrap();
+        let scs = Scs::from_range(0..8, vec![2, 2, 2]).unwrap();
 
         #[rustfmt::skip]
-        let expected = Sfs::new(
+        let expected = Scs::new(
             vec![
                  7.,  7.,
                  7., -1.,
@@ -348,18 +378,18 @@ mod tests {
                  7., -1.,
                 -1., -1.,
             ],
-            Shape(vec![2, 2, 2])
+            vec![2, 2, 2]
         ).unwrap();
 
-        assert_eq!(sfs.fold(-1.), expected);
+        assert_eq!(scs.fold(-1.), expected);
     }
 
     #[test]
     fn test_fold_2x3x2() {
-        let sfs = Sfs::from_range(0..12, Shape(vec![2, 3, 2])).unwrap();
+        let scs = Scs::from_range(0..12, vec![2, 3, 2]).unwrap();
 
         #[rustfmt::skip]
-        let expected = Sfs::new(
+        let expected = Scs::new(
             vec![
                 11., 11.,  
                 11.,  5.5,
@@ -369,18 +399,18 @@ mod tests {
                  5.5, 0.,
                  0.,  0.,
             ],
-            Shape(vec![2, 3, 2])
+            vec![2, 3, 2]
         ).unwrap();
 
-        assert_eq!(sfs.fold(0.), expected);
+        assert_eq!(scs.fold(0.), expected);
     }
 
     #[test]
     fn test_fold_3x3x3() {
-        let sfs = Sfs::from_range(0..27, Shape(vec![3, 3, 3])).unwrap();
+        let scs = Scs::from_range(0..27, vec![3, 3, 3]).unwrap();
 
         #[rustfmt::skip]
-        let expected = Sfs::new(
+        let expected = Scs::new(
             vec![
                 26., 26., 26.,
                 26., 26., 13.,
@@ -394,74 +424,66 @@ mod tests {
                 13.,  0.,  0.,
                  0.,  0.,  0.,
             ],
-            Shape(vec![3, 3, 3])
+            vec![3, 3, 3]
         ).unwrap();
 
-        assert_eq!(sfs.fold(0.), expected);
+        assert_eq!(scs.fold(0.), expected);
     }
 
     #[test]
     fn test_marginalize_axis_2d() {
-        let sfs = Sfs::from_range(0..9, Shape(vec![3, 3])).unwrap();
+        let scs = Scs::from_range(0..9, vec![3, 3]).unwrap();
 
         assert_eq!(
-            sfs.marginalize_axis(Axis(0)),
-            Sfs::new(vec![9., 12., 15.], Shape(vec![3])).unwrap()
+            scs.marginalize_axis(Axis(0)),
+            Scs::new(vec![9., 12., 15.], vec![3]).unwrap()
         );
 
         assert_eq!(
-            sfs.marginalize_axis(Axis(1)),
-            Sfs::new(vec![3., 12., 21.], Shape(vec![3])).unwrap()
+            scs.marginalize_axis(Axis(1)),
+            Scs::new(vec![3., 12., 21.], vec![3]).unwrap()
         );
     }
 
     #[test]
     fn test_marginalize_axis_3d() {
-        let sfs = Sfs::from_range(0..27, Shape(vec![3, 3, 3])).unwrap();
+        let scs = Scs::from_range(0..27, vec![3, 3, 3]).unwrap();
 
         assert_eq!(
-            sfs.marginalize_axis(Axis(0)),
-            Sfs::new(
+            scs.marginalize_axis(Axis(0)),
+            Scs::new(
                 vec![27., 30., 33., 36., 39., 42., 45., 48., 51.],
-                Shape(vec![3, 3])
+                vec![3, 3]
             )
             .unwrap()
         );
 
         assert_eq!(
-            sfs.marginalize_axis(Axis(1)),
-            Sfs::new(
-                vec![9., 12., 15., 36., 39., 42., 63., 66., 69.],
-                Shape(vec![3, 3])
-            )
-            .unwrap()
+            scs.marginalize_axis(Axis(1)),
+            Scs::new(vec![9., 12., 15., 36., 39., 42., 63., 66., 69.], vec![3, 3]).unwrap()
         );
 
         assert_eq!(
-            sfs.marginalize_axis(Axis(2)),
-            Sfs::new(
-                vec![3., 12., 21., 30., 39., 48., 57., 66., 75.],
-                Shape(vec![3, 3])
-            )
-            .unwrap()
+            scs.marginalize_axis(Axis(2)),
+            Scs::new(vec![3., 12., 21., 30., 39., 48., 57., 66., 75.], vec![3, 3]).unwrap()
         );
     }
 
     #[test]
     fn test_marginalize_3d() {
-        let sfs = Sfs::from_range(0..27, Shape(vec![3, 3, 3])).unwrap();
+        let scs = Scs::from_range(0..27, vec![3, 3, 3]).unwrap();
 
-        let expected = Sfs::new(vec![90., 117., 144.], Shape(vec![3])).unwrap();
-        assert_eq!(sfs.marginalize(&[Axis(0), Axis(2)]).unwrap(), expected);
-        assert_eq!(sfs.marginalize(&[Axis(2), Axis(0)]).unwrap(), expected);
+        let expected = Scs::new(vec![90., 117., 144.], vec![3]).unwrap();
+        assert_eq!(scs.marginalize(&[Axis(0), Axis(2)]).unwrap(), expected);
+        assert_eq!(scs.marginalize(&[Axis(2), Axis(0)]).unwrap(), expected);
     }
 
     #[test]
     fn test_marginalize_too_many_axes() {
-        let sfs = Sfs::from_range(0..9, Shape(vec![3, 3])).unwrap();
+        let scs = Scs::from_range(0..9, vec![3, 3]).unwrap();
 
         assert_eq!(
-            sfs.marginalize(&[Axis(0), Axis(1)]),
+            scs.marginalize(&[Axis(0), Axis(1)]),
             Err(MarginalizationError::TooManyAxes {
                 axes: 2,
                 dimensions: 2
@@ -471,20 +493,20 @@ mod tests {
 
     #[test]
     fn test_marginalize_duplicate_axis() {
-        let sfs = Sfs::from_range(0..27, Shape(vec![3, 3, 3])).unwrap();
+        let scs = Scs::from_range(0..27, vec![3, 3, 3]).unwrap();
 
         assert_eq!(
-            sfs.marginalize(&[Axis(1), Axis(1)]),
+            scs.marginalize(&[Axis(1), Axis(1)]),
             Err(MarginalizationError::DuplicateAxis { axis: 1 }),
         );
     }
 
     #[test]
     fn test_marginalize_axis_out_ouf_bounds() {
-        let sfs = Sfs::from_range(0..9, Shape(vec![3, 3])).unwrap();
+        let scs = Scs::from_range(0..9, vec![3, 3]).unwrap();
 
         assert_eq!(
-            sfs.marginalize(&[Axis(2)]),
+            scs.marginalize(&[Axis(2)]),
             Err(MarginalizationError::AxisOutOfBounds {
                 axis: 2,
                 dimensions: 2

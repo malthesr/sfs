@@ -1,10 +1,10 @@
 use std::{fs, io, path::Path};
 
-use crate::Sfs;
+use crate::{spectrum::State, Spectrum};
 
 use super::{text, Format};
 
-/// A builder to write an SFS.
+/// A builder to write a spectrum.
 #[derive(Debug)]
 pub struct Builder {
     format: Format,
@@ -12,7 +12,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    /// Set SFS format to write.
+    /// Set format to write.
     ///
     /// If unset, the plain text format will be used.
     pub fn set_format(mut self, format: Format) -> Self {
@@ -20,7 +20,7 @@ impl Builder {
         self
     }
 
-    /// Set SFS precision.
+    /// Set precision.
     ///
     /// This is only used for the plain text format.
     /// If unset, a precision of six digits will be used.
@@ -29,47 +29,47 @@ impl Builder {
         self
     }
 
-    /// Write SFS to writer.
-    pub fn write<W, const N: bool>(self, writer: &mut W, sfs: &Sfs<N>) -> io::Result<()>
+    /// Write spectrum to writer.
+    pub fn write<W, S: State>(self, writer: &mut W, spectrum: &Spectrum<S>) -> io::Result<()>
     where
         W: io::Write,
     {
         match self.format {
-            Format::Text => text::write_sfs(writer, sfs, self.precision),
-            Format::Npy => sfs.array.write_npy(writer),
+            Format::Text => text::write_spectrum(writer, spectrum, self.precision),
+            Format::Npy => spectrum.array.write_npy(writer),
         }
     }
 
-    /// Write SFS to stdout.
-    pub fn write_to_stdout<const N: bool>(self, sfs: &Sfs<N>) -> io::Result<()> {
-        self.write(&mut io::stdout().lock(), sfs)
+    /// Write spectrum to stdout.
+    pub fn write_to_stdout<S: State>(self, spectrum: &Spectrum<S>) -> io::Result<()> {
+        self.write(&mut io::stdout().lock(), spectrum)
     }
 
-    /// Write SFS to path.
+    /// Write spectrum to path.
     ///
     /// If path already exists, it will be overwritten.
-    pub fn write_to_path<P, const N: bool>(self, path: P, sfs: &Sfs<N>) -> io::Result<()>
+    pub fn write_to_path<P, S: State>(self, path: P, spectrum: &Spectrum<S>) -> io::Result<()>
     where
         P: AsRef<Path>,
     {
-        self.write(&mut fs::File::create(path)?, sfs)
+        self.write(&mut fs::File::create(path)?, spectrum)
     }
 
-    /// Write SFS to path or stdout.
+    /// Write spectrum to path or stdout.
     ///
     /// If the provided path is `None`, read from stdin.
     /// If path already exists, it will be overwritten.
-    pub fn write_to_path_or_stdout<P, const N: bool>(
+    pub fn write_to_path_or_stdout<P, S: State>(
         self,
         path: Option<P>,
-        sfs: &Sfs<N>,
+        spectrum: &Spectrum<S>,
     ) -> io::Result<()>
     where
         P: AsRef<Path>,
     {
         match path {
-            Some(path) => self.write_to_path(path, sfs),
-            None => self.write_to_stdout(sfs),
+            Some(path) => self.write_to_path(path, spectrum),
+            None => self.write_to_stdout(spectrum),
         }
     }
 }

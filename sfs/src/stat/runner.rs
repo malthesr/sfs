@@ -2,7 +2,7 @@ use std::{fmt, io};
 
 use anyhow::{anyhow, Error};
 
-use sfs_core::Sfs;
+use sfs_core::Scs;
 
 use super::{Stat, Statistic};
 
@@ -24,7 +24,7 @@ impl StatisticWithOptions {
 #[derive(Debug)]
 pub struct Runner<W> {
     writer: W,
-    sfs: Sfs,
+    scs: Scs,
     statistics: Vec<StatisticWithOptions>,
     header: bool,
     delimiter: char,
@@ -56,7 +56,7 @@ where
         let statistics = self
             .statistics
             .iter()
-            .map(|s| match s.statistic.calculate(&self.sfs) {
+            .map(|s| match s.statistic.calculate(&self.scs) {
                 Ok(stat) => Ok(format!("{stat:.precision$}", precision = s.precision)),
                 Err(e) => Err(anyhow!(e)),
             })
@@ -86,7 +86,7 @@ impl TryFrom<&Stat> for Runner<io::StdoutLock<'static>> {
     type Error = Error;
 
     fn try_from(args: &Stat) -> Result<Self, Self::Error> {
-        let sfs = sfs_core::sfs::io::read::Builder::default()
+        let scs = sfs_core::spectrum::io::read::Builder::default()
             .read_from_path_or_stdin(args.path.as_ref())?;
 
         let statistics = match (&args.precision[..], &args.statistics[..]) {
@@ -110,7 +110,7 @@ impl TryFrom<&Stat> for Runner<io::StdoutLock<'static>> {
 
         Ok(Self {
             writer: io::stdout().lock(),
-            sfs,
+            scs,
             statistics,
             header: args.header,
             delimiter: args.delimiter,

@@ -1,12 +1,12 @@
 use std::fmt;
 
-use super::{NormSfs, Sfs, Shape};
+use super::{Sfs, Shape, Spectrum, State};
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct F2(pub f64);
 
 impl F2 {
-    pub fn from_sfs(sfs: &NormSfs) -> Result<Self, DimensionError> {
+    pub fn from_sfs(sfs: &Sfs) -> Result<Self, DimensionError> {
         if sfs.dimensions() == 2 {
             Ok(Self::from_sfs_unchecked(sfs))
         } else {
@@ -17,7 +17,7 @@ impl F2 {
         }
     }
 
-    fn from_sfs_unchecked(sfs: &NormSfs) -> Self {
+    fn from_sfs_unchecked(sfs: &Sfs) -> Self {
         Self(
             sfs.array
                 .iter()
@@ -32,7 +32,7 @@ impl F2 {
 pub struct Fst(pub f64);
 
 impl Fst {
-    pub fn from_sfs(sfs: &NormSfs) -> Result<Self, DimensionError> {
+    pub fn from_sfs(sfs: &Sfs) -> Result<Self, DimensionError> {
         if sfs.dimensions() == 2 {
             Ok(Self::from_sfs_unchecked(sfs))
         } else {
@@ -43,7 +43,7 @@ impl Fst {
         }
     }
 
-    fn from_sfs_unchecked(sfs: &NormSfs) -> Self {
+    fn from_sfs_unchecked(sfs: &Sfs) -> Self {
         // We only want the polymorphic parts of the spectrum and corresponding frequencies,
         // so we drop the first and last values
         let polymorphic_iter = sfs
@@ -78,20 +78,22 @@ impl Fst {
 pub struct King(pub f64);
 
 impl King {
-    pub fn from_sfs<const N: bool>(sfs: &Sfs<N>) -> Result<Self, ShapeError> {
-        if sfs.shape().0 == [3, 3] {
-            Ok(Self::from_sfs_unchecked(sfs))
+    pub fn from_spectrum<S: State>(spectrum: &Spectrum<S>) -> Result<Self, ShapeError> {
+        if spectrum.shape().0 == [3, 3] {
+            Ok(Self::from_spectrum_unchecked(spectrum))
         } else {
             Err(ShapeError {
                 expected: Shape(vec![3, 3]),
-                actual: sfs.shape().clone(),
+                actual: spectrum.shape().clone(),
             })
         }
     }
 
-    fn from_sfs_unchecked<const N: bool>(sfs: &Sfs<N>) -> Self {
-        let numer = sfs[[1, 1]] - 2. * (sfs[[0, 2]] + sfs[[2, 0]]);
-        let denom = sfs[[0, 1]] + sfs[[1, 0]] + 2. * sfs[[1, 1]] + sfs[[1, 2]] + sfs[[2, 1]];
+    fn from_spectrum_unchecked<S: State>(spectrum: &Spectrum<S>) -> Self {
+        let s = spectrum;
+
+        let numer = s[[1, 1]] - 2. * (s[[0, 2]] + s[[2, 0]]);
+        let denom = s[[0, 1]] + s[[1, 0]] + 2. * s[[1, 1]] + s[[1, 2]] + s[[2, 1]];
 
         Self(numer / denom)
     }
@@ -101,19 +103,21 @@ impl King {
 pub struct R0(pub f64);
 
 impl R0 {
-    pub fn from_sfs<const N: bool>(sfs: &Sfs<N>) -> Result<Self, ShapeError> {
-        if sfs.shape().0 == [3, 3] {
-            Ok(Self::from_sfs_unchecked(sfs))
+    pub fn from_spectrum<S: State>(spectrum: &Spectrum<S>) -> Result<Self, ShapeError> {
+        if spectrum.shape().0 == [3, 3] {
+            Ok(Self::from_spectrum_unchecked(spectrum))
         } else {
             Err(ShapeError {
                 expected: Shape(vec![3, 3]),
-                actual: sfs.shape().clone(),
+                actual: spectrum.shape().clone(),
             })
         }
     }
 
-    fn from_sfs_unchecked<const N: bool>(sfs: &Sfs<N>) -> Self {
-        Self((sfs[[0, 2]] + sfs[[2, 0]]) / sfs[[1, 1]])
+    fn from_spectrum_unchecked<S: State>(spectrum: &Spectrum<S>) -> Self {
+        let s = spectrum;
+
+        Self((s[[0, 2]] + s[[2, 0]]) / s[[1, 1]])
     }
 }
 
@@ -121,23 +125,23 @@ impl R0 {
 pub struct R1(pub f64);
 
 impl R1 {
-    pub fn from_sfs<const N: bool>(sfs: &Sfs<N>) -> Result<Self, ShapeError> {
-        if sfs.shape().0 == [3, 3] {
-            Ok(Self::from_sfs_unchecked(sfs))
+    pub fn from_spectrum<S: State>(spectrum: &Spectrum<S>) -> Result<Self, ShapeError> {
+        if spectrum.shape().0 == [3, 3] {
+            Ok(Self::from_spectrum_unchecked(spectrum))
         } else {
             Err(ShapeError {
                 expected: Shape(vec![3, 3]),
-                actual: sfs.shape().clone(),
+                actual: spectrum.shape().clone(),
             })
         }
     }
 
-    fn from_sfs_unchecked<const N: bool>(sfs: &Sfs<N>) -> Self {
+    fn from_spectrum_unchecked<S: State>(spectrum: &Spectrum<S>) -> Self {
         let denom = [[0, 1], [0, 2], [1, 0], [1, 2], [2, 0], [2, 1]]
             .iter()
-            .map(|&i| sfs[i])
+            .map(|&i| spectrum[i])
             .sum::<f64>();
-        Self(sfs[[1, 1]] / denom)
+        Self(spectrum[[1, 1]] / denom)
     }
 }
 
@@ -145,7 +149,7 @@ impl R1 {
 pub struct Heterozygosity(pub f64);
 
 impl Heterozygosity {
-    pub fn from_sfs(sfs: &NormSfs) -> Result<Self, ShapeError> {
+    pub fn from_sfs(sfs: &Sfs) -> Result<Self, ShapeError> {
         if sfs.shape().0 == [3] {
             Ok(Self::from_sfs_unchecked(sfs))
         } else {
@@ -156,7 +160,7 @@ impl Heterozygosity {
         }
     }
 
-    fn from_sfs_unchecked(sfs: &NormSfs) -> Self {
+    fn from_sfs_unchecked(sfs: &Sfs) -> Self {
         Self(sfs[[1]])
     }
 }

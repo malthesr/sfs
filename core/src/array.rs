@@ -209,7 +209,7 @@ impl fmt::Display for ShapeError {
         let ShapeError { shape, n } = self;
         write!(
             f,
-            "cannot construct SFS with shape {shape} from {n} elements"
+            "cannot construct array with shape {shape} from {n} elements"
         )
     }
 }

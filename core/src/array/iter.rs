@@ -87,8 +87,8 @@ mod tests {
 
     #[test]
     fn test_iter_indices_1d() {
-        let sfs = Array::from_zeros(Shape(vec![4]));
-        let mut iter = sfs.iter_indices();
+        let array = Array::from_zeros(Shape(vec![4]));
+        let mut iter = array.iter_indices();
 
         assert_eq!(iter.len(), 4);
 
@@ -106,8 +106,8 @@ mod tests {
 
     #[test]
     fn test_iter_indices_2d() {
-        let sfs = Array::from_zeros(Shape(vec![2, 3]));
-        let mut iter = sfs.iter_indices();
+        let array = Array::from_zeros(Shape(vec![2, 3]));
+        let mut iter = array.iter_indices();
 
         assert_eq!(iter.len(), 6);
 
@@ -127,8 +127,8 @@ mod tests {
 
     #[test]
     fn test_iter_indices_3d() {
-        let sfs = Array::from_zeros(Shape(vec![2, 1, 3]));
-        let mut iter = sfs.iter_indices();
+        let array = Array::from_zeros(Shape(vec![2, 1, 3]));
+        let mut iter = array.iter_indices();
 
         assert_eq!(iter.next(), Some(vec![0, 0, 0]));
         assert_eq!(iter.next(), Some(vec![0, 0, 1]));

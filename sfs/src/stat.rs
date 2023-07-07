@@ -3,9 +3,9 @@ use std::{fmt, path::PathBuf};
 use anyhow::Error;
 
 use clap::{Parser, ValueEnum};
-use sfs_core::sfs::{
+use sfs_core::spectrum::{
     stat::{Fst, Heterozygosity, King, F2, R0, R1},
-    Sfs,
+    Scs,
 };
 
 mod runner;
@@ -80,17 +80,17 @@ pub enum Statistic {
 }
 
 impl Statistic {
-    pub fn calculate(self, sfs: &Sfs) -> Result<f64, Error> {
+    pub fn calculate(self, scs: &Scs) -> Result<f64, Error> {
         Ok(match self {
-            Statistic::F2 => F2::from_sfs(&sfs.clone().into_normalized())?.0,
-            Statistic::Fst => Fst::from_sfs(&sfs.clone().into_normalized())?.0,
+            Statistic::F2 => F2::from_sfs(&scs.clone().into_normalized())?.0,
+            Statistic::Fst => Fst::from_sfs(&scs.clone().into_normalized())?.0,
             Statistic::Heterozygosity => {
-                Heterozygosity::from_sfs(&sfs.clone().into_normalized())?.0
+                Heterozygosity::from_sfs(&scs.clone().into_normalized())?.0
             }
-            Statistic::King => King::from_sfs(sfs)?.0,
-            Statistic::R0 => R0::from_sfs(sfs)?.0,
-            Statistic::R1 => R1::from_sfs(sfs)?.0,
-            Statistic::Sum => sfs.sum(),
+            Statistic::King => King::from_spectrum(scs)?.0,
+            Statistic::R0 => R0::from_spectrum(scs)?.0,
+            Statistic::R1 => R1::from_spectrum(scs)?.0,
+            Statistic::Sum => scs.sum(),
         })
     }
 

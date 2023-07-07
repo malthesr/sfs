@@ -83,7 +83,7 @@ impl Create {
         let sfs = runner.run()?;
 
         let precision = self.precision;
-        sfs_core::sfs::io::text::write_sfs(&mut io::stdout(), &sfs, precision)?;
+        sfs_core::spectrum::io::text::write_spectrum(&mut io::stdout(), &sfs, precision)?;
 
         Ok(())
     }

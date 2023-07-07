@@ -2,7 +2,7 @@ use anyhow::Error;
 
 use sfs_core::{
     reader::{ParseGenotypeError, Reader},
-    sfs::Sfs,
+    Scs,
 };
 
 pub struct Runner {
@@ -20,8 +20,8 @@ impl Runner {
         })
     }
 
-    pub fn run(&mut self) -> Result<Sfs, Error> {
-        let mut sfs = Sfs::from_zeros(self.reader.shape());
+    pub fn run(&mut self) -> Result<Scs, Error> {
+        let mut sfs = Scs::from_zeros(self.reader.shape());
 
         while let Some(allele_counts) = self.reader.read_allele_counts()? {
             match allele_counts {

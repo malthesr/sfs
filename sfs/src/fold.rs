@@ -58,12 +58,12 @@ impl From<Sentry> for f64 {
 
 impl Fold {
     pub fn run(self) -> Result<(), Error> {
-        let mut sfs = sfs_core::sfs::io::read::Builder::default()
+        let mut sfs = sfs_core::spectrum::io::read::Builder::default()
             .read_from_path_or_stdin(self.path.as_ref())?;
 
         sfs = sfs.fold(f64::from(self.sentry));
 
-        sfs_core::sfs::io::write::Builder::default()
+        sfs_core::spectrum::io::write::Builder::default()
             .set_precision(self.precision)
             .write_to_path_or_stdout(self.output, &sfs)?;
 

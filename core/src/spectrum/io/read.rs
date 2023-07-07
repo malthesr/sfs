@@ -1,20 +1,20 @@
-//! Utilities for reading SFS.
+//! Utilities for reading SCS.
 
 use std::{fs, io, path::Path};
 
-use crate::{Array, Sfs};
+use crate::{Array, Scs};
 
 use super::{text, Format};
 
-/// A builder to read an SFS.
+/// A builder to read an SCS.
 #[derive(Debug, Default)]
 pub struct Builder {
     format: Option<Format>,
 }
 
 impl Builder {
-    /// Read SFS from reader.
-    pub fn read<R>(self, reader: &mut R) -> io::Result<Sfs>
+    /// Read SCS from reader.
+    pub fn read<R>(self, reader: &mut R) -> io::Result<Scs>
     where
         R: io::Read,
     {
@@ -25,27 +25,24 @@ impl Builder {
 
         let reader = &mut &raw[..];
         match format {
-            Some(Format::Text) => text::read_sfs(reader),
-            Some(Format::Npy) => Array::read_npy(reader).map(Sfs::from),
-            None => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "invalid SFS format",
-            )),
+            Some(Format::Text) => text::read_scs(reader),
+            Some(Format::Npy) => Array::read_npy(reader).map(Scs::from),
+            None => Err(io::Error::new(io::ErrorKind::InvalidData, "invalid format")),
         }
     }
 
-    /// Read SFS from path.
-    pub fn read_from_path<P>(self, path: P) -> io::Result<Sfs>
+    /// Read SCS from path.
+    pub fn read_from_path<P>(self, path: P) -> io::Result<Scs>
     where
         P: AsRef<Path>,
     {
         self.read(&mut fs::File::open(path)?)
     }
 
-    /// Read SFS from path or stdin.
+    /// Read SCS from path or stdin.
     ///
     /// If the provided path is `None`, read from stdin.
-    pub fn read_from_path_or_stdin<P>(self, path: Option<P>) -> io::Result<Sfs>
+    pub fn read_from_path_or_stdin<P>(self, path: Option<P>) -> io::Result<Scs>
     where
         P: AsRef<Path>,
     {
@@ -55,12 +52,12 @@ impl Builder {
         }
     }
 
-    /// Read SFS from stdin.
-    pub fn read_from_stdin(self) -> io::Result<Sfs> {
+    /// Read SCS from stdin.
+    pub fn read_from_stdin(self) -> io::Result<Scs> {
         self.read(&mut io::stdin().lock())
     }
 
-    /// Set SFS format to read.
+    /// Set format to read.
     ///
     /// If unset, the format will automatically be detected when reading.
     pub fn set_format(mut self, format: Format) -> Self {

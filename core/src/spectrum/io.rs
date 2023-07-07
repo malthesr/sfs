@@ -1,4 +1,4 @@
-//! Utilities for reading and writing SFS.
+//! Utilities for reading and writing spectrum.
 
 pub mod read;
 pub mod text;
@@ -6,7 +6,7 @@ pub mod write;
 
 use crate::array::npy;
 
-/// Supported SFS formats.
+/// Supported formats.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Format {
     // Numpy binary npy format.

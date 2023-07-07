@@ -1,9 +1,9 @@
-//! Reading and writing for the text SFS format.
+//! Reading and writing for the text format.
 //!
 //! The plain text format is a simple format consisting of two lines.
 //! The first line contains a header line `#SHAPE=<[shape]>`, where `[shape]`
-//! is a `/`-separated representation of the shape of the SFS. The next line
-//! gives the SFS in flat, row-major order separated by a single space.
+//! is a `/`-separated representation of the shape of the spectrum. The next line
+//! gives the spectrum in flat, row-major order separated by a single space.
 
 use std::{
     fmt::{self, Write},
@@ -11,25 +11,28 @@ use std::{
     str::FromStr,
 };
 
-use crate::sfs::{Sfs, Shape};
+use crate::{
+    spectrum::{Shape, State},
+    Scs, Spectrum,
+};
 
 /// The text format start string.
 pub(crate) const START: [u8; 6] = *b"#SHAPE";
 
-fn parse_sfs(s: &str, shape: Shape) -> io::Result<Sfs> {
+fn parse_scs(s: &str, shape: Shape) -> io::Result<Scs> {
     s.split_ascii_whitespace()
         .map(f64::from_str)
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
         .and_then(|vec| {
-            Sfs::new(vec, shape).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+            Scs::new(vec, shape).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
         })
 }
 
-/// Reads an SFS in text format from a reader.
+/// Reads an SCS in text format from a reader.
 ///
 /// The stream is assumed to be positioned at the start.
-pub fn read_sfs<R>(reader: &mut R) -> io::Result<Sfs>
+pub fn read_scs<R>(reader: &mut R) -> io::Result<Scs>
 where
     R: io::BufRead,
 {
@@ -38,33 +41,42 @@ where
     let mut buf = String::new();
     let _bytes_read = reader.read_to_string(&mut buf)?;
 
-    parse_sfs(&buf, header.shape)
+    parse_scs(&buf, header.shape)
 }
 
-fn format_sfs<const N: bool>(sfs: &Sfs<N>, sep: &str, precision: usize) -> String {
-    if let Some(first) = sfs.array.as_slice().first() {
+fn format_spectrum<S: State>(spectrum: &Spectrum<S>, sep: &str, precision: usize) -> String {
+    if let Some(first) = spectrum.array.as_slice().first() {
         let mut init = String::new();
         write!(init, "{first:.precision$}").unwrap();
 
-        sfs.array.as_slice().iter().skip(1).fold(init, |mut s, x| {
-            s.push_str(sep);
-            write!(s, "{x:.precision$}").unwrap();
-            s
-        })
+        spectrum
+            .array
+            .as_slice()
+            .iter()
+            .skip(1)
+            .fold(init, |mut s, x| {
+                s.push_str(sep);
+                write!(s, "{x:.precision$}").unwrap();
+                s
+            })
     } else {
         String::new()
     }
 }
 
-/// Writes an SFS in text format to a writer.
-pub fn write_sfs<W, const N: bool>(writer: &mut W, sfs: &Sfs<N>, precision: usize) -> io::Result<()>
+/// Writes a spectrum in text format to a writer.
+pub fn write_spectrum<W, S: State>(
+    writer: &mut W,
+    spectrum: &Spectrum<S>,
+    precision: usize,
+) -> io::Result<()>
 where
     W: io::Write,
 {
-    let header = Header::new(sfs.array.shape().clone());
+    let header = Header::new(spectrum.array.shape().clone());
     header.write(writer)?;
 
-    writeln!(writer, "{}", format_sfs(sfs, " ", precision))
+    writeln!(writer, "{}", format_spectrum(spectrum, " ", precision))
 }
 
 #[derive(Clone, Debug)]
@@ -130,7 +142,11 @@ pub struct ParseHeaderError(String);
 
 impl fmt::Display for ParseHeaderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "failed to parse '{}' as plain SFS format header", self.0)
+        write!(
+            f,
+            "failed to parse '{}' as plain text format header",
+            self.0
+        )
     }
 }
 
@@ -160,8 +176,8 @@ mod tests {
         let src = b"#SHAPE=<3>\n0.0 1.0 2.0\n";
 
         assert_eq!(
-            read_sfs(&mut &src[..])?,
-            Sfs::new(vec![0., 1., 2.], Shape(vec![3])).unwrap()
+            read_scs(&mut &src[..])?,
+            Scs::new(vec![0., 1., 2.], Shape(vec![3])).unwrap()
         );
 
         Ok(())
@@ -172,8 +188,8 @@ mod tests {
         let src = b"#SHAPE=<2/3>\n0.0 1.0 2.0 3.0 4.0 5.0\n";
 
         assert_eq!(
-            read_sfs(&mut &src[..])?,
-            Sfs::new(vec![0., 1., 2., 3., 4., 5.], Shape(vec![2, 3])).unwrap()
+            read_scs(&mut &src[..])?,
+            Scs::new(vec![0., 1., 2., 3., 4., 5.], Shape(vec![2, 3])).unwrap()
         );
 
         Ok(())
@@ -182,9 +198,9 @@ mod tests {
     #[test]
     fn test_write_1d() -> io::Result<()> {
         let mut dest = Vec::new();
-        write_sfs(
+        write_spectrum(
             &mut dest,
-            &Sfs::new(vec![0., 1., 2.], Shape(vec![3])).unwrap(),
+            &Scs::new(vec![0., 1., 2.], Shape(vec![3])).unwrap(),
             2,
         )?;
 
@@ -196,9 +212,9 @@ mod tests {
     #[test]
     fn test_write_2d() -> io::Result<()> {
         let mut dest = Vec::new();
-        write_sfs(
+        write_spectrum(
             &mut dest,
-            &Sfs::new(vec![0., 1., 2., 3., 4., 5.], Shape(vec![2, 3])).unwrap(),
+            &Scs::new(vec![0., 1., 2., 3., 4., 5.], Shape(vec![2, 3])).unwrap(),
             6,
         )?;
 

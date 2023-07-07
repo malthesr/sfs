@@ -2,7 +2,7 @@ use std::iter::FusedIterator;
 
 use crate::array::iter::IndicesIter;
 
-use super::Sfs;
+use super::{Spectrum, State};
 
 #[derive(Debug)]
 pub struct FrequenciesIter<'a> {
@@ -10,9 +10,9 @@ pub struct FrequenciesIter<'a> {
 }
 
 impl<'a> FrequenciesIter<'a> {
-    pub(super) fn new<const N: bool>(sfs: &'a Sfs<N>) -> Self {
+    pub(super) fn new<S: State>(spectrum: &'a Spectrum<S>) -> Self {
         Self {
-            inner: sfs.array.iter_indices(),
+            inner: spectrum.array.iter_indices(),
         }
     }
 }
@@ -45,8 +45,8 @@ mod tests {
 
     #[test]
     fn test_iter_frequencies_2d() {
-        let sfs = Sfs::from_zeros(vec![2, 3]);
-        let mut iter = sfs.iter_frequencies();
+        let spectrum = Spectrum::from_zeros(vec![2, 3]);
+        let mut iter = spectrum.iter_frequencies();
 
         assert_eq!(iter.len(), 6);
 
