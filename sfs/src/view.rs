@@ -4,7 +4,7 @@ use anyhow::Error;
 
 use clap::{Parser, ValueEnum};
 
-use sfs_core::sfs::Axis;
+use sfs_core::array::Axis;
 
 /// Format, marginalize, and convert SFS.
 #[derive(Debug, Parser)]

@@ -1,6 +1,6 @@
 use std::ops::Index;
 
-use super::Axis;
+use super::{Axis, Shape};
 
 #[derive(Debug, Eq, Hash, PartialEq)]
 pub struct RemovedAxis<'a, T> {
@@ -43,6 +43,12 @@ where
     }
 }
 
+impl<'a> RemovedAxis<'a, Shape> {
+    pub fn into_shape(self) -> Shape {
+        Shape(self.iter().copied().collect())
+    }
+}
+
 impl<'a, T> Clone for RemovedAxis<'a, T>
 where
     &'a T: Copy,
@@ -69,7 +75,7 @@ where
 mod tests {
     use super::*;
 
-    use crate::sfs::Shape;
+    use crate::array::Shape;
 
     #[test]
     #[should_panic]

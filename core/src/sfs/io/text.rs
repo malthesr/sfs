@@ -42,11 +42,11 @@ where
 }
 
 fn format_sfs<const N: bool>(sfs: &Sfs<N>, sep: &str, precision: usize) -> String {
-    if let Some(first) = sfs.as_slice().first() {
+    if let Some(first) = sfs.array.as_slice().first() {
         let mut init = String::new();
         write!(init, "{first:.precision$}").unwrap();
 
-        sfs.as_slice().iter().skip(1).fold(init, |mut s, x| {
+        sfs.array.as_slice().iter().skip(1).fold(init, |mut s, x| {
             s.push_str(sep);
             write!(s, "{x:.precision$}").unwrap();
             s
@@ -61,7 +61,7 @@ pub fn write_sfs<W, const N: bool>(writer: &mut W, sfs: &Sfs<N>, precision: usiz
 where
     W: io::Write,
 {
-    let header = Header::new(sfs.shape().clone());
+    let header = Header::new(sfs.array.shape().clone());
     header.write(writer)?;
 
     writeln!(writer, "{}", format_sfs(sfs, " ", precision))

@@ -2,9 +2,9 @@
 
 use std::{fs, io, path::Path};
 
-use crate::Sfs;
+use crate::{Array, Sfs};
 
-use super::{npy, text, Format};
+use super::{text, Format};
 
 /// A builder to read an SFS.
 #[derive(Debug, Default)]
@@ -26,7 +26,7 @@ impl Builder {
         let reader = &mut &raw[..];
         match format {
             Some(Format::Text) => text::read_sfs(reader),
-            Some(Format::Npy) => npy::read_sfs(reader),
+            Some(Format::Npy) => Array::read_npy(reader).map(Sfs::from),
             None => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "invalid SFS format",
@@ -72,6 +72,8 @@ impl Builder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::array::npy;
 
     #[test]
     fn test_detect_npy() {

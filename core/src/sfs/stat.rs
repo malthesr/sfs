@@ -19,7 +19,8 @@ impl F2 {
 
     fn from_sfs_unchecked(sfs: &NormSfs) -> Self {
         Self(
-            sfs.iter()
+            sfs.array
+                .iter()
                 .zip(sfs.iter_frequencies())
                 .map(|(v, fs)| v * (fs[0] - fs[1]).powi(2))
                 .sum(),
@@ -46,13 +47,15 @@ impl Fst {
         // We only want the polymorphic parts of the spectrum and corresponding frequencies,
         // so we drop the first and last values
         let polymorphic_iter = sfs
+            .array
             .iter()
             .zip(sfs.iter_frequencies())
-            .take(sfs.as_slice().len() - 1)
+            .take(sfs.elements() - 1)
             .skip(1);
 
-        let n_i_sub = (sfs.shape()[0] - 2) as f64;
-        let n_j_sub = (sfs.shape()[1] - 2) as f64;
+        let shape = sfs.shape();
+        let n_i_sub = (shape[0] - 2) as f64;
+        let n_j_sub = (shape[1] - 2) as f64;
 
         let (num, denom) = polymorphic_iter
             .map(|(v, fs)| {

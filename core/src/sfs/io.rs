@@ -1,9 +1,10 @@
 //! Utilities for reading and writing SFS.
 
-pub mod npy;
 pub mod read;
 pub mod text;
 pub mod write;
+
+use crate::array::npy;
 
 /// Supported SFS formats.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

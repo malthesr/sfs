@@ -1,6 +1,6 @@
 use super::{
     shape::{RemovedAxis, Strides},
-    Sfs, Shape,
+    Array, Shape,
 };
 
 mod iter;
@@ -33,10 +33,10 @@ impl<'a> View<'a> {
         }
     }
 
-    pub fn to_sfs(&self) -> Sfs {
+    pub fn to_array(&self) -> Array {
         let data = self.iter().copied().collect();
         let shape = Shape(self.shape.iter().copied().collect());
 
-        Sfs::new_unchecked(data, shape)
+        Array::new_unchecked(data, shape)
     }
 }

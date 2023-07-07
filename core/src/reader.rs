@@ -12,7 +12,7 @@ use sample_map::{PopulationId, Sample};
 
 pub mod bcf;
 
-use crate::sfs::Shape;
+use crate::array::Shape;
 
 trait GenotypeReader {
     fn current_contig(&self) -> &str;

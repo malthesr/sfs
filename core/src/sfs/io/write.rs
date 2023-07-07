@@ -2,7 +2,7 @@ use std::{fs, io, path::Path};
 
 use crate::Sfs;
 
-use super::{npy, text, Format};
+use super::{text, Format};
 
 /// A builder to write an SFS.
 #[derive(Debug)]
@@ -36,7 +36,7 @@ impl Builder {
     {
         match self.format {
             Format::Text => text::write_sfs(writer, sfs, self.precision),
-            Format::Npy => npy::write_sfs(writer, sfs),
+            Format::Npy => sfs.array.write_npy(writer),
         }
     }
 

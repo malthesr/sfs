@@ -90,7 +90,7 @@ impl Statistic {
             Statistic::King => King::from_sfs(sfs)?.0,
             Statistic::R0 => R0::from_sfs(sfs)?.0,
             Statistic::R1 => R1::from_sfs(sfs)?.0,
-            Statistic::Sum => sfs.iter().sum(),
+            Statistic::Sum => sfs.sum(),
         })
     }
 

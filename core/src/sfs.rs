@@ -7,46 +7,30 @@ use std::{
 pub mod io;
 
 pub mod iter;
-use iter::{AxisIter, FrequenciesIter, IndicesIter};
-
-mod shape;
-use shape::Strides;
-pub use shape::{Axis, Shape};
+use iter::FrequenciesIter;
 
 pub mod stat;
 
-mod view;
-pub use view::View;
+use crate::array::{Array, Axis, Shape, ShapeError};
 
 pub type NormSfs = Sfs<true>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Sfs<const N: bool = false> {
-    pub(crate) data: Vec<f64>,
-    pub(crate) shape: Shape,
-    pub(crate) strides: Strides,
+    array: Array,
 }
 
 impl<const N: bool> Sfs<N> {
-    pub fn as_slice(&self) -> &[f64] {
-        self.data.as_slice()
-    }
-
     pub fn dimensions(&self) -> usize {
-        self.shape.len()
+        self.array.dimensions()
     }
 
-    pub fn get_axis(&self, axis: Axis, index: usize) -> Option<View<'_>> {
-        if axis.0 > self.dimensions() || index >= self.shape[axis.0] {
-            None
-        } else {
-            let offset = index * self.strides[axis.0];
-            let data = &self.data;
-            let shape = self.shape.remove_axis(axis);
-            let strides = self.strides.remove_axis(axis);
+    pub fn elements(&self) -> usize {
+        self.array.elements()
+    }
 
-            Some(View::new_unchecked(data, offset, shape, strides))
-        }
+    pub fn shape(&self) -> &Shape {
+        self.array.shape()
     }
 
     pub fn into_normalized(mut self) -> NormSfs {
@@ -54,20 +38,8 @@ impl<const N: bool> Sfs<N> {
         self.with_normalization()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, f64> {
-        self.data.iter()
-    }
-
-    pub fn iter_axis(&self, axis: Axis) -> AxisIter<'_, N> {
-        AxisIter::new(self, axis)
-    }
-
-    pub fn iter_frequencies(&self) -> FrequenciesIter<'_, N> {
+    pub fn iter_frequencies(&self) -> FrequenciesIter<'_> {
         FrequenciesIter::new(self)
-    }
-
-    pub fn iter_indices(&self) -> IndicesIter<'_, N> {
-        IndicesIter::new(self)
     }
 
     pub fn marginalize(&self, axes: &[Axis]) -> Result<Self, MarginalizationError> {
@@ -102,6 +74,12 @@ impl<const N: bool> Sfs<N> {
         }
     }
 
+    fn marginalize_axis(&self, axis: Axis) -> Self {
+        Self {
+            array: self.array.sum(axis),
+        }
+    }
+
     fn marginalize_unchecked(&self, axes: &[Axis]) -> Self {
         let mut sfs = self.clone();
 
@@ -117,48 +95,45 @@ impl<const N: bool> Sfs<N> {
         sfs
     }
 
-    fn marginalize_axis(&self, axis: Axis) -> Self {
-        let new_shape = Shape(self.shape.remove_axis(axis).iter().copied().collect());
-
-        self.iter_axis(axis)
-            .fold(Sfs::from_zeros(new_shape), |mut sfs, view| {
-                sfs.iter_mut().zip(view.iter()).for_each(|(x, y)| *x += y);
-                sfs
-            })
-            .with_normalization()
-    }
-
-    pub fn new_unchecked(data: Vec<f64>, shape: Shape) -> Self {
-        Self {
-            data,
-            strides: shape.strides(),
-            shape,
-        }
-    }
-
     pub fn normalize(&mut self) {
-        let sum = self.data.iter().sum::<f64>();
-
-        self.data.iter_mut().for_each(|x| *x /= sum);
+        let sum = self.sum();
+        self.array.iter_mut().for_each(|x| *x /= sum);
     }
 
-    pub fn shape(&self) -> &Shape {
-        &self.shape
+    pub fn sum(&self) -> f64 {
+        self.array.iter().sum::<f64>()
     }
 
     fn with_normalization<const M: bool>(self) -> Sfs<M> {
-        Sfs {
-            data: self.data,
-            shape: self.shape,
-            strides: self.strides,
-        }
+        Sfs { array: self.array }
     }
 }
 
 impl Sfs {
+    pub fn new<S>(data: Vec<f64>, shape: S) -> Result<Self, ShapeError>
+    where
+        Shape: From<S>,
+    {
+        Array::new(data, shape).map(Self::from)
+    }
+
+    pub fn from_range<S>(range: Range<usize>, shape: S) -> Result<Self, ShapeError>
+    where
+        Shape: From<S>,
+    {
+        Array::from_iter(range.map(|v| v as f64), shape).map(Self::from)
+    }
+
+    pub fn from_zeros<S>(shape: S) -> Self
+    where
+        Shape: From<S>,
+    {
+        Self::from(Array::from_zeros(shape))
+    }
+
     pub fn fold(&self, sentry: f64) -> Self {
-        let n = self.data.len();
-        let total_count = self.shape.iter().sum::<usize>() - self.shape.len();
+        let n = self.elements();
+        let total_count = self.shape().iter().sum::<usize>() - self.shape().len();
 
         // In general, this point divides the folding line. Since we are folding onto the "upper"
         // part of the array, we want to fold anything "below" it onto something "above" it.
@@ -187,64 +162,41 @@ impl Sfs {
         // Note that we cannot use the algorithm below in-place, since the reverse iterator
         // may reach elements that have already been folded, which causes bugs. Hence we fold
         // into a zero-initialised copy.
-        let mut folded = Self::from_zeros(self.shape.clone());
+        let mut folded = Self::from_zeros(self.shape().clone());
 
         // We iterate over indices rather than values since we have to mutate on the array
         // while looking at it from both directions.
         (0..n).zip((0..n).rev()).for_each(|(i, rev_i)| {
-            let count = self.shape.index_sum_from_flat_unchecked(i);
+            let count = self.shape().index_sum_from_flat_unchecked(i);
+
+            let src = self.array.as_slice();
+            let dst = folded.array.as_mut_slice();
 
             match (count.cmp(&mid_count), has_diagonal) {
                 (Ordering::Less, _) | (Ordering::Equal, false) => {
                     // We are in the upper part of the spectrum that should be folded onto.
-                    folded.data[i] = self.data[i] + self.data[rev_i];
+                    dst[i] = src[i] + src[rev_i];
                 }
                 (Ordering::Equal, true) => {
                     // We are on a diagonal, which must be handled as a special case:
                     // there are apparently different opinions on what the most correct
                     // thing to do is. This adopts the same strategy as e.g. in dadi.
-                    folded.data[i] = 0.5 * self.data[i] + 0.5 * self.data[rev_i];
+                    dst[i] = 0.5 * src[i] + 0.5 * src[rev_i];
                 }
                 (Ordering::Greater, _) => {
                     // We are in the lower part of the spectrum to be filled with sentry values.
-                    folded.data[i] = sentry;
+                    dst[i] = sentry;
                 }
             }
         });
 
         folded
     }
+}
 
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, f64> {
-        self.data.iter_mut()
-    }
-
-    pub fn new(data: Vec<f64>, shape: Shape) -> Result<Self, ShapeError> {
-        if data.len() == shape.iter().product() {
-            Ok(Self::new_unchecked(data, shape))
-        } else {
-            Err(ShapeError {
-                shape,
-                n: data.len(),
-            })
-        }
-    }
-
-    pub fn from_iter<I>(iter: I, shape: Shape) -> Result<Self, ShapeError>
-    where
-        I: IntoIterator<Item = f64>,
-    {
-        let data = iter.into_iter().collect();
-
-        Self::new(data, shape)
-    }
-
-    pub fn from_range(range: Range<usize>, shape: Shape) -> Result<Self, ShapeError> {
-        Self::from_iter(range.map(|v| v as f64), shape)
-    }
-
-    pub fn from_zeros(shape: Shape) -> Self {
-        Self::new_unchecked(vec![0.0; shape.iter().product()], shape)
+impl From<Array> for Sfs {
+    fn from(array: Array) -> Self {
+        Self { array }
     }
 }
 
@@ -255,10 +207,7 @@ where
     type Output = f64;
 
     fn index(&self, index: I) -> &Self::Output {
-        self.strides
-            .flat_index(&self.shape, index)
-            .and_then(|flat| self.data.get(flat))
-            .expect("index out of bounds")
+        self.array.index(index)
     }
 }
 
@@ -267,30 +216,9 @@ where
     I: AsRef<[usize]>,
 {
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
-        self.strides
-            .flat_index(&self.shape, index)
-            .and_then(|flat| self.data.get_mut(flat))
-            .expect("index out of bounds")
+        self.array.index_mut(index)
     }
 }
-
-#[derive(Debug)]
-pub struct ShapeError {
-    shape: Shape,
-    n: usize,
-}
-
-impl fmt::Display for ShapeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let ShapeError { shape, n } = self;
-        write!(
-            f,
-            "cannot construct SFS with shape {shape} from {n} elements"
-        )
-    }
-}
-
-impl std::error::Error for ShapeError {}
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum MarginalizationError {

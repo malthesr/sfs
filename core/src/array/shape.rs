@@ -1,7 +1,7 @@
 use std::{fmt, ops::Deref};
 
 mod removed_axis;
-pub use removed_axis::RemovedAxis;
+pub(crate) use removed_axis::RemovedAxis;
 
 mod strides;
 pub use strides::Strides;
@@ -21,8 +21,12 @@ impl Deref for Axis {
 pub struct Shape(pub Vec<usize>);
 
 impl Shape {
+    pub fn elements(&self) -> usize {
+        self.iter().product()
+    }
+
     pub(crate) fn index_from_flat_unchecked(&self, mut flat: usize) -> Vec<usize> {
-        let mut n = self.iter().product::<usize>();
+        let mut n = self.elements();
         let mut index = vec![0; self.len()];
         for (i, v) in self.iter().enumerate() {
             n /= v;
@@ -33,7 +37,7 @@ impl Shape {
     }
 
     pub(crate) fn index_sum_from_flat_unchecked(&self, mut flat: usize) -> usize {
-        let mut n = self.iter().product::<usize>();
+        let mut n = self.elements();
         let mut sum = 0;
         for v in self.iter() {
             n /= v;
@@ -69,6 +73,12 @@ impl Deref for Shape {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl From<Vec<usize>> for Shape {
+    fn from(shape: Vec<usize>) -> Self {
+        Self(shape)
     }
 }
 

@@ -63,11 +63,11 @@ impl<'a> FusedIterator for Iter<'a> {}
 
 #[cfg(test)]
 mod tests {
-    use crate::sfs::{Axis, Sfs, Shape};
+    use crate::{array::Axis, Array};
 
     #[test]
     fn test_iter_fused() {
-        let array = Sfs::new(vec![0.0, 1.0], Shape(vec![2, 1])).unwrap();
+        let array = Array::new(vec![0.0, 1.0], vec![2, 1]).unwrap();
         let view = array.get_axis(Axis(0), 0).unwrap();
         let mut iter = view.iter();
 
