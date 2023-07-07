@@ -16,18 +16,18 @@ pub mod view;
 use view::View;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Array {
-    data: Vec<f64>,
+pub struct Array<T> {
+    data: Vec<T>,
     shape: Shape,
     strides: Strides,
 }
 
-impl Array {
-    pub fn as_mut_slice(&mut self) -> &mut [f64] {
+impl<T> Array<T> {
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
         self.data.as_mut_slice()
     }
 
-    pub fn as_slice(&self) -> &[f64] {
+    pub fn as_slice(&self) -> &[T] {
         self.data.as_slice()
     }
 
@@ -39,9 +39,20 @@ impl Array {
         self.data.len()
     }
 
+    pub fn from_element<S>(element: T, shape: S) -> Self
+    where
+        T: Clone,
+        Shape: From<S>,
+    {
+        let shape = Shape::from(shape);
+        let elements = shape.elements();
+
+        Self::new_unchecked::<Shape>(vec![element; elements], shape)
+    }
+
     pub fn from_iter<I, S>(iter: I, shape: S) -> Result<Self, ShapeError>
     where
-        I: IntoIterator<Item = f64>,
+        I: IntoIterator<Item = T>,
         Shape: From<S>,
     {
         let data = iter.into_iter().collect();
@@ -49,17 +60,7 @@ impl Array {
         Self::new(data, shape)
     }
 
-    pub fn from_zeros<S>(shape: S) -> Self
-    where
-        Shape: From<S>,
-    {
-        let shape = Shape::from(shape);
-        let elements = shape.elements();
-
-        Self::new_unchecked::<Shape>(vec![0.0; elements], shape)
-    }
-
-    pub fn get<I>(&self, index: I) -> Option<&f64>
+    pub fn get<I>(&self, index: I) -> Option<&T>
     where
         I: AsRef<[usize]>,
     {
@@ -74,7 +75,7 @@ impl Array {
         }
     }
 
-    pub fn get_axis(&self, axis: Axis, index: usize) -> Option<View<'_>> {
+    pub fn get_axis(&self, axis: Axis, index: usize) -> Option<View<'_, T>> {
         if axis.0 > self.dimensions() || index >= self.shape[axis.0] {
             None
         } else {
@@ -87,7 +88,7 @@ impl Array {
         }
     }
 
-    pub fn get_mut<I>(&mut self, index: I) -> Option<&mut f64>
+    pub fn get_mut<I>(&mut self, index: I) -> Option<&mut T>
     where
         I: AsRef<[usize]>,
     {
@@ -102,11 +103,11 @@ impl Array {
         }
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, f64> {
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.data.iter()
     }
 
-    pub fn iter_axis(&self, axis: Axis) -> AxisIter<'_> {
+    pub fn iter_axis(&self, axis: Axis) -> AxisIter<'_, T> {
         AxisIter::new(self, axis)
     }
 
@@ -114,11 +115,11 @@ impl Array {
         IndicesIter::new(self)
     }
 
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, f64> {
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, T> {
         self.data.iter_mut()
     }
 
-    pub fn new<S>(data: Vec<f64>, shape: S) -> Result<Self, ShapeError>
+    pub fn new<S>(data: Vec<T>, shape: S) -> Result<Self, ShapeError>
     where
         Shape: From<S>,
     {
@@ -134,7 +135,7 @@ impl Array {
         }
     }
 
-    pub fn new_unchecked<S>(data: Vec<f64>, shape: S) -> Self
+    pub fn new_unchecked<S>(data: Vec<T>, shape: S) -> Self
     where
         Shape: From<S>,
     {
@@ -147,15 +148,24 @@ impl Array {
         }
     }
 
+    pub fn shape(&self) -> &Shape {
+        &self.shape
+    }
+}
+
+impl Array<f64> {
+    pub fn from_zeros<S>(shape: S) -> Self
+    where
+        Shape: From<S>,
+    {
+        Self::from_element(0.0, shape)
+    }
+
     pub fn read_npy<R>(mut reader: R) -> io::Result<Self>
     where
         R: io::BufRead,
     {
         npy::read_array(&mut reader)
-    }
-
-    pub fn shape(&self) -> &Shape {
-        &self.shape
     }
 
     pub fn sum(&self, axis: Axis) -> Self {
@@ -176,11 +186,11 @@ impl Array {
     }
 }
 
-impl<I> Index<I> for Array
+impl<T, I> Index<I> for Array<T>
 where
     I: AsRef<[usize]>,
 {
-    type Output = f64;
+    type Output = T;
 
     fn index(&self, index: I) -> &Self::Output {
         self.get(index)
@@ -188,7 +198,7 @@ where
     }
 }
 
-impl<I> IndexMut<I> for Array
+impl<T, I> IndexMut<I> for Array<T>
 where
     I: AsRef<[usize]>,
 {

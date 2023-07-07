@@ -36,7 +36,7 @@ pub type Scs = Spectrum<Counts>;
 
 #[derive(Debug, PartialEq)]
 pub struct Spectrum<S: State> {
-    array: Array,
+    array: Array<f64>,
     state: PhantomData<S>,
 }
 
@@ -224,8 +224,8 @@ impl<S: State> Clone for Spectrum<S> {
     }
 }
 
-impl From<Array> for Scs {
-    fn from(array: Array) -> Self {
+impl From<Array<f64>> for Scs {
+    fn from(array: Array<f64>) -> Self {
         Self {
             array,
             state: PhantomData,

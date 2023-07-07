@@ -20,7 +20,7 @@ pub(crate) const MAGIC: [u8; 6] = *b"\x93NUMPY";
 /// Reads an array in npy format from a reader.
 ///
 /// The stream is assumed to be positioned at the start.
-pub fn read_array<R>(reader: &mut R) -> io::Result<Array>
+pub fn read_array<R>(reader: &mut R) -> io::Result<Array<f64>>
 where
     R: io::BufRead,
 {
@@ -43,7 +43,7 @@ where
 }
 
 /// Writes an array in npy format to a writer.
-pub fn write_array<W>(writer: &mut W, array: &Array) -> io::Result<()>
+pub fn write_array<W>(writer: &mut W, array: &Array<f64>) -> io::Result<()>
 where
     W: io::Write,
 {

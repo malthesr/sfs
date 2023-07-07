@@ -6,21 +6,34 @@ use super::{
 mod iter;
 pub use iter::Iter;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct View<'a> {
-    pub(crate) data: &'a [f64],
-    pub(crate) offset: usize,
-    pub(crate) shape: RemovedAxis<'a, Shape>,
-    pub(crate) strides: RemovedAxis<'a, Strides>,
+#[derive(Debug, PartialEq)]
+pub struct View<'a, T> {
+    data: &'a [T],
+    offset: usize,
+    shape: RemovedAxis<'a, Shape>,
+    strides: RemovedAxis<'a, Strides>,
 }
 
-impl<'a> View<'a> {
-    pub fn iter(&self) -> Iter<'_> {
+impl<'a, T> Clone for View<'a, T> {
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data,
+            offset: self.offset,
+            shape: self.shape,
+            strides: self.strides,
+        }
+    }
+}
+
+impl<'a, T> Copy for View<'a, T> {}
+
+impl<'a, T> View<'a, T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter::new(*self)
     }
 
     pub(crate) fn new_unchecked(
-        data: &'a [f64],
+        data: &'a [T],
         offset: usize,
         shape: RemovedAxis<'a, Shape>,
         strides: RemovedAxis<'a, Strides>,
@@ -33,8 +46,11 @@ impl<'a> View<'a> {
         }
     }
 
-    pub fn to_array(&self) -> Array {
-        let data = self.iter().copied().collect();
+    pub fn to_array(&self) -> Array<T>
+    where
+        T: Clone,
+    {
+        let data = self.iter().cloned().collect();
         let shape = Shape(self.shape.iter().copied().collect());
 
         Array::new_unchecked(data, shape)

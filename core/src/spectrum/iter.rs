@@ -24,7 +24,7 @@ impl<'a> Iterator for FrequenciesIter<'a> {
         self.inner.next().map(|indices| {
             indices
                 .iter()
-                .zip(self.inner.array().shape().iter())
+                .zip(self.inner.shape().iter())
                 .map(|(&i, n)| i as f64 / (n - 1) as f64)
                 .collect()
         })

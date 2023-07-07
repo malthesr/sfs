@@ -1,16 +1,16 @@
 use std::iter::FusedIterator;
 
-use super::{Array, Axis, View};
+use super::{Array, Axis, Shape, View};
 
 #[derive(Debug)]
-pub struct AxisIter<'a> {
-    array: &'a Array,
+pub struct AxisIter<'a, T> {
+    array: &'a Array<T>,
     axis: Axis,
     index: usize,
 }
 
-impl<'a> AxisIter<'a> {
-    pub(super) fn new(array: &'a Array, axis: Axis) -> Self {
+impl<'a, T> AxisIter<'a, T> {
+    pub(super) fn new(array: &'a Array<T>, axis: Axis) -> Self {
         Self {
             array,
             axis,
@@ -19,8 +19,8 @@ impl<'a> AxisIter<'a> {
     }
 }
 
-impl<'a> Iterator for AxisIter<'a> {
-    type Item = View<'a>;
+impl<'a, T> Iterator for AxisIter<'a, T> {
+    type Item = View<'a, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let view = self.array.get_axis(self.axis, self.index)?;
@@ -34,25 +34,25 @@ impl<'a> Iterator for AxisIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for AxisIter<'a> {}
+impl<'a, T> ExactSizeIterator for AxisIter<'a, T> {}
 
-impl<'a> FusedIterator for AxisIter<'a> {}
+impl<'a, T> FusedIterator for AxisIter<'a, T> {}
 
 #[derive(Debug)]
 pub struct IndicesIter<'a> {
-    array: &'a Array,
+    shape: &'a Shape,
     index: usize,
     total: usize,
 }
 
 impl<'a> IndicesIter<'a> {
-    pub(crate) fn array(&self) -> &'a Array {
-        self.array
+    pub(crate) fn shape(&self) -> &'a Shape {
+        self.shape
     }
 
-    pub(super) fn new(array: &'a Array) -> Self {
+    pub(super) fn new<T>(array: &'a Array<T>) -> Self {
         Self {
-            array,
+            shape: array.shape(),
             index: 0,
             total: array.shape.iter().product::<usize>(),
         }
@@ -65,7 +65,7 @@ impl<'a> Iterator for IndicesIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         (self.index < self.total).then(|| {
             self.index += 1;
-            self.array.shape.index_from_flat_unchecked(self.index - 1)
+            self.shape.index_from_flat_unchecked(self.index - 1)
         })
     }
 

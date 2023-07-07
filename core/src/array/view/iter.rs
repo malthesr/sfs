@@ -3,15 +3,15 @@ use std::iter::FusedIterator;
 use super::View;
 
 #[derive(Clone, Debug)]
-pub struct Iter<'a> {
-    view: View<'a>,
+pub struct Iter<'a, T> {
+    view: View<'a, T>,
     index: usize,
     coords: Vec<usize>,
     first: bool,
 }
 
-impl<'a> Iter<'a> {
-    pub(super) fn new(view: View<'a>) -> Self {
+impl<'a, T> Iter<'a, T> {
+    pub(super) fn new(view: View<'a, T>) -> Self {
         Self {
             coords: vec![0; view.shape.len()],
             view,
@@ -44,8 +44,8 @@ impl<'a> Iter<'a> {
     }
 }
 
-impl<'a> Iterator for Iter<'a> {
-    type Item = &'a f64;
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.impl_next(self.view.shape.len() - 1)
@@ -57,9 +57,9 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for Iter<'a> {}
+impl<'a, T> ExactSizeIterator for Iter<'a, T> {}
 
-impl<'a> FusedIterator for Iter<'a> {}
+impl<'a, T> FusedIterator for Iter<'a, T> {}
 
 #[cfg(test)]
 mod tests {
