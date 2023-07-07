@@ -13,14 +13,14 @@ pub struct Fold {
     #[clap(value_parser, value_name = "PATH")]
     pub path: Option<PathBuf>,
 
-    /// Sentry value to use when folding.
+    /// Fill value to use when folding.
     ///
-    /// By default, the "lower" part of the SFS will be set to nan. Setting this option can change
-    /// this to other sentry values.
-    #[clap(short = 's', long, default_value = "nan", value_name = "SENTRY")]
+    /// By default, the "lower" part of the SFS will be filled with nan values. Set this option to
+    /// use another fill values.
+    #[clap(short = 's', long, default_value = "nan", value_name = "FILL")]
     // default_value_t does not work well here since floats are formatted different from the Clap
     // enum string representation
-    pub sentry: Sentry,
+    pub fill: Fill,
 
     /// Output SFS path.
     ///
@@ -34,7 +34,7 @@ pub struct Fold {
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Sentry {
+pub enum Fill {
     /// Set folded value to nan.
     Nan,
     /// Set folded value to 0.
@@ -45,27 +45,27 @@ pub enum Sentry {
     Inf,
 }
 
-impl From<Sentry> for f64 {
-    fn from(value: Sentry) -> Self {
+impl From<Fill> for f64 {
+    fn from(value: Fill) -> Self {
         match value {
-            Sentry::Nan => f64::NAN,
-            Sentry::Zero => 0.,
-            Sentry::MinusOne => -1.,
-            Sentry::Inf => f64::INFINITY,
+            Fill::Nan => f64::NAN,
+            Fill::Zero => 0.,
+            Fill::MinusOne => -1.,
+            Fill::Inf => f64::INFINITY,
         }
     }
 }
 
 impl Fold {
     pub fn run(self) -> Result<(), Error> {
-        let mut sfs = sfs_core::spectrum::io::read::Builder::default()
+        let mut scs = sfs_core::spectrum::io::read::Builder::default()
             .read_from_path_or_stdin(self.path.as_ref())?;
 
-        sfs = sfs.fold(f64::from(self.sentry));
+        scs = scs.fold().into_spectrum(f64::from(self.fill));
 
         sfs_core::spectrum::io::write::Builder::default()
             .set_precision(self.precision)
-            .write_to_path_or_stdout(self.output, &sfs)?;
+            .write_to_path_or_stdout(self.output, &scs)?;
 
         Ok(())
     }

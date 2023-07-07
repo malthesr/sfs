@@ -2,7 +2,7 @@ args = [
   "fold",
   "--precision",
   "0",
-  "--sentry",
+  "--fill",
   "inf",
   "tests/fold/two_populations.npy"
 ]
