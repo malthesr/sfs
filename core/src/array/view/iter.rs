@@ -5,16 +5,18 @@ use super::View;
 #[derive(Clone, Debug)]
 pub struct Iter<'a, T> {
     view: View<'a, T>,
+    coords: Vec<usize>,
+    offset: usize,
     index: usize,
-    coords: Option<Vec<usize>>,
 }
 
 impl<'a, T> Iter<'a, T> {
     pub(super) fn new(view: View<'a, T>) -> Self {
         Self {
             view,
+            coords: vec![0; view.dimensions()],
+            offset: 0,
             index: 0,
-            coords: None,
         }
     }
 
@@ -23,23 +25,19 @@ impl<'a, T> Iter<'a, T> {
     }
 
     fn impl_next_rec(&mut self, axis: usize) -> Option<<Self as Iterator>::Item> {
-        let coords = if let Some(coords) = self.coords.as_mut() {
-            coords
-        } else {
-            self.coords = Some(vec![0; self.view.dimensions()]);
+        if self.index == 0 {
+            self.index += 1;
             return self.view.data.first();
         };
 
-        coords[axis] += 1;
-
-        if coords[axis] < self.view.shape[axis] {
-            self.index += self.view.strides[axis];
-
-            Some(&self.view.data[self.index])
+        self.coords[axis] += 1;
+        if self.coords[axis] < self.view.shape[axis] {
+            self.offset += self.view.strides[axis];
+            self.index += 1;
+            self.view.data.get(self.offset)
         } else if axis > 0 {
-            coords[axis] = 0;
-            self.index -= self.backstride(axis);
-
+            self.coords[axis] = 0;
+            self.offset -= self.backstride(axis);
             self.impl_next_rec(axis - 1)
         } else {
             None
@@ -55,7 +53,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let n = self.view.shape.iter().product();
+        let n = self.view.shape.elements() - self.index;
         (n, Some(n))
     }
 }
@@ -70,10 +68,22 @@ mod tests {
 
     macro_rules! assert_iter_eq {
         ($array:ident [axis: $axis:literal, index: $index:literal], [$($expected:literal),* $(,)?] $(,)?) => {
-            assert_eq!(
-                Vec::from_iter($array.index_axis(Axis($axis), $index).iter().copied()),
-                vec![$($expected),+],
-            );
+            let view = $array.index_axis(Axis($axis), $index);
+            let mut iter = view.iter().copied();
+
+            let expected = vec![$($expected),+];
+            let mut len = expected.len();
+            let mut actual = Vec::new();
+
+            for _ in 0..expected.len() {
+                assert_eq!(dbg!(iter.len()), dbg!(len));
+                len -= 1;
+                actual.push(iter.next().unwrap());
+            }
+
+            assert_eq!(iter.len(), 0);
+            assert!(iter.next().is_none());
+            assert_eq!(actual, expected);
         };
     }
 

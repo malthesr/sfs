@@ -44,6 +44,10 @@ where
 }
 
 impl<'a> RemovedAxis<'a, Shape> {
+    pub fn elements(&self) -> usize {
+        self.iter().product()
+    }
+
     pub fn into_shape(self) -> Shape {
         Shape(self.iter().copied().collect())
     }
