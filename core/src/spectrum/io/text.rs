@@ -175,10 +175,7 @@ mod tests {
     fn test_read_1d() -> io::Result<()> {
         let src = b"#SHAPE=<3>\n0.0 1.0 2.0\n";
 
-        assert_eq!(
-            read_scs(&mut &src[..])?,
-            Scs::new(vec![0., 1., 2.], Shape(vec![3])).unwrap()
-        );
+        assert_eq!(read_scs(&mut &src[..])?, Scs::new([0., 1., 2.], 3).unwrap());
 
         Ok(())
     }
@@ -189,7 +186,7 @@ mod tests {
 
         assert_eq!(
             read_scs(&mut &src[..])?,
-            Scs::new(vec![0., 1., 2., 3., 4., 5.], Shape(vec![2, 3])).unwrap()
+            Scs::new([0., 1., 2., 3., 4., 5.], [2, 3]).unwrap()
         );
 
         Ok(())
@@ -198,11 +195,7 @@ mod tests {
     #[test]
     fn test_write_1d() -> io::Result<()> {
         let mut dest = Vec::new();
-        write_spectrum(
-            &mut dest,
-            &Scs::new(vec![0., 1., 2.], Shape(vec![3])).unwrap(),
-            2,
-        )?;
+        write_spectrum(&mut dest, &Scs::new([0., 1., 2.], 3).unwrap(), 2)?;
 
         assert_eq!(dest, b"#SHAPE=<3>\n0.00 1.00 2.00\n");
 
@@ -214,7 +207,7 @@ mod tests {
         let mut dest = Vec::new();
         write_spectrum(
             &mut dest,
-            &Scs::new(vec![0., 1., 2., 3., 4., 5.], Shape(vec![2, 3])).unwrap(),
+            &Scs::new([0., 1., 2., 3., 4., 5.], [2, 3]).unwrap(),
             6,
         )?;
 

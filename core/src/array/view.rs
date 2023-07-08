@@ -50,7 +50,7 @@ impl<'a, T> View<'a, T> {
     where
         T: Clone,
     {
-        let data = self.iter().cloned().collect();
+        let data = Vec::from_iter(self.iter().cloned());
         let shape = Shape(self.shape.iter().copied().collect());
 
         Array::new_unchecked(data, shape)

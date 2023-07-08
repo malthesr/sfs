@@ -82,6 +82,18 @@ impl From<Vec<usize>> for Shape {
     }
 }
 
+impl<const N: usize> From<[usize; N]> for Shape {
+    fn from(shape: [usize; N]) -> Self {
+        Self(shape.to_vec())
+    }
+}
+
+impl From<usize> for Shape {
+    fn from(shape: usize) -> Self {
+        Self(vec![shape])
+    }
+}
+
 impl fmt::Display for Shape {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self[0])?;

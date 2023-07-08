@@ -77,7 +77,7 @@ impl<S: State> Folded<S> {
     }
 
     pub fn into_spectrum(&self, fill: f64) -> Spectrum<S> {
-        let data = self.array.iter().map(|x| x.unwrap_or(fill)).collect();
+        let data = Vec::from_iter(self.array.iter().map(|x| x.unwrap_or(fill)));
         let shape = self.array.shape().clone();
         let array = Array::new_unchecked(data, shape);
 
@@ -100,30 +100,30 @@ mod tests {
 
     #[test]
     fn test_fold_4() {
-        let scs = Scs::from_range(0..4, vec![4]).unwrap();
-        let expected = Scs::new(vec![3., 3., 0., 0.], vec![4]).unwrap();
+        let scs = Scs::from_range(0..4, 4).unwrap();
+        let expected = Scs::new([3., 3., 0., 0.], 4).unwrap();
         assert_eq!(scs.fold().into_spectrum(0.0), expected);
     }
 
     #[test]
     fn test_fold_5() {
-        let scs = Scs::from_range(0..5, vec![5]).unwrap();
-        let expected = Scs::new(vec![4., 4., 2., -1., -1.], vec![5]).unwrap();
+        let scs = Scs::from_range(0..5, 5).unwrap();
+        let expected = Scs::new([4., 4., 2., -1., -1.], 5).unwrap();
         assert_eq!(scs.fold().into_spectrum(-1.), expected);
     }
 
     #[test]
     fn test_fold_3x3() {
-        let scs = Scs::from_range(0..9, vec![3, 3]).unwrap();
+        let scs = Scs::from_range(0..9, [3, 3]).unwrap();
 
         #[rustfmt::skip]
         let expected = Scs::new(
-            vec![
+            [
                 8., 8., 4.,
                 8., 4., 0.,
                 4., 0., 0.,
             ],
-            vec![3, 3]
+            [3, 3]
         ).unwrap();
 
         assert_eq!(scs.fold().into_spectrum(0.0), expected);
@@ -131,15 +131,15 @@ mod tests {
 
     #[test]
     fn test_fold_2x4() {
-        let scs = Scs::from_range(0..8, vec![2, 4]).unwrap();
+        let scs = Scs::from_range(0..8, [2, 4]).unwrap();
 
         #[rustfmt::skip]
         let expected = Scs::new(
-            vec![
+            [
                 7., 7.,            3.5, f64::INFINITY,
                 7., 3.5, f64::INFINITY, f64::INFINITY,
             ],
-            vec![2, 4]
+            [2, 4]
         ).unwrap();
 
         assert_eq!(scs.fold().into_spectrum(f64::INFINITY), expected);
@@ -147,16 +147,16 @@ mod tests {
 
     #[test]
     fn test_fold_3x4() {
-        let scs = Scs::from_range(0..12, vec![3, 4]).unwrap();
+        let scs = Scs::from_range(0..12, [3, 4]).unwrap();
 
         #[rustfmt::skip]
         let expected = Scs::new(
-            vec![
+            [
                 11., 11., 11., 0.,
                 11., 11.,  0., 0.,
                 11.,  0.,  0., 0.,
             ],
-            vec![3, 4]
+            [3, 4]
         ).unwrap();
 
         assert_eq!(scs.fold().into_spectrum(0.), expected);
@@ -164,16 +164,16 @@ mod tests {
 
     #[test]
     fn test_fold_3x7() {
-        let scs = Scs::from_range(0..21, vec![3, 7]).unwrap();
+        let scs = Scs::from_range(0..21, [3, 7]).unwrap();
 
         #[rustfmt::skip]
         let expected = Scs::new(
-            vec![
+            [
                 20., 20., 20., 20., 10., 0., 0.,
                 20., 20., 20., 10.,  0., 0., 0.,
                 20., 20., 10.,  0.,  0., 0., 0.,
             ],
-            vec![3, 7]
+            [3, 7]
         ).unwrap();
 
         assert_eq!(scs.fold().into_spectrum(0.0), expected);
@@ -181,18 +181,18 @@ mod tests {
 
     #[test]
     fn test_fold_2x2x2() {
-        let scs = Scs::from_range(0..8, vec![2, 2, 2]).unwrap();
+        let scs = Scs::from_range(0..8, [2, 2, 2]).unwrap();
 
         #[rustfmt::skip]
         let expected = Scs::new(
-            vec![
+            [
                  7.,  7.,
                  7., -1.,
                 
                  7., -1.,
                 -1., -1.,
             ],
-            vec![2, 2, 2]
+            [2, 2, 2]
         ).unwrap();
 
         assert_eq!(scs.fold().into_spectrum(-1.0), expected);
@@ -200,11 +200,11 @@ mod tests {
 
     #[test]
     fn test_fold_2x3x2() {
-        let scs = Scs::from_range(0..12, vec![2, 3, 2]).unwrap();
+        let scs = Scs::from_range(0..12, [2, 3, 2]).unwrap();
 
         #[rustfmt::skip]
         let expected = Scs::new(
-            vec![
+            [
                 11., 11.,  
                 11.,  5.5,
                 5.5,  0.,
@@ -213,7 +213,7 @@ mod tests {
                  5.5, 0.,
                  0.,  0.,
             ],
-            vec![2, 3, 2]
+            [2, 3, 2]
         ).unwrap();
 
         assert_eq!(scs.fold().into_spectrum(0.0), expected);
@@ -221,11 +221,11 @@ mod tests {
 
     #[test]
     fn test_fold_3x3x3() {
-        let scs = Scs::from_range(0..27, vec![3, 3, 3]).unwrap();
+        let scs = Scs::from_range(0..27, [3, 3, 3]).unwrap();
 
         #[rustfmt::skip]
         let expected = Scs::new(
-            vec![
+        [
                 26., 26., 26.,
                 26., 26., 13.,
                 26., 13.,  0.,
@@ -238,7 +238,7 @@ mod tests {
                 13.,  0.,  0.,
                  0.,  0.,  0.,
             ],
-            vec![3, 3, 3]
+        [3, 3, 3]
         ).unwrap();
 
         assert_eq!(scs.fold().into_spectrum(0.0), expected);

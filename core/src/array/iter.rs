@@ -83,11 +83,9 @@ impl<'a> FusedIterator for IndicesIter<'a> {}
 mod tests {
     use super::*;
 
-    use crate::array::Shape;
-
     #[test]
     fn test_iter_indices_1d() {
-        let array = Array::from_zeros(Shape(vec![4]));
+        let array = Array::from_zeros(4);
         let mut iter = array.iter_indices();
 
         assert_eq!(iter.len(), 4);
@@ -106,7 +104,7 @@ mod tests {
 
     #[test]
     fn test_iter_indices_2d() {
-        let array = Array::from_zeros(Shape(vec![2, 3]));
+        let array = Array::from_zeros([2, 3]);
         let mut iter = array.iter_indices();
 
         assert_eq!(iter.len(), 6);
@@ -127,7 +125,7 @@ mod tests {
 
     #[test]
     fn test_iter_indices_3d() {
-        let array = Array::from_zeros(Shape(vec![2, 1, 3]));
+        let array = Array::from_zeros([2, 1, 3]);
         let mut iter = array.iter_indices();
 
         assert_eq!(iter.next(), Some(vec![0, 0, 0]));

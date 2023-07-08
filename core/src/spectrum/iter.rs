@@ -45,7 +45,7 @@ mod tests {
 
     #[test]
     fn test_iter_frequencies_2d() {
-        let spectrum = Spectrum::from_zeros(vec![2, 3]);
+        let spectrum = Spectrum::from_zeros([2, 3]);
         let mut iter = spectrum.iter_frequencies();
 
         assert_eq!(iter.len(), 6);

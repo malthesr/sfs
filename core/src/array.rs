@@ -47,7 +47,7 @@ impl<T> Array<T> {
         let shape = Shape::from(shape);
         let elements = shape.elements();
 
-        Self::new_unchecked::<Shape>(vec![element; elements], shape)
+        Self::new_unchecked::<_, Shape>(vec![element; elements], shape)
     }
 
     pub fn from_iter<I, S>(iter: I, shape: S) -> Result<Self, ShapeError>
@@ -55,9 +55,7 @@ impl<T> Array<T> {
         I: IntoIterator<Item = T>,
         Shape: From<S>,
     {
-        let data = iter.into_iter().collect();
-
-        Self::new(data, shape)
+        Self::new(Vec::from_iter(iter), shape)
     }
 
     pub fn get<I>(&self, index: I) -> Option<&T>
@@ -119,14 +117,16 @@ impl<T> Array<T> {
         self.data.iter_mut()
     }
 
-    pub fn new<S>(data: Vec<T>, shape: S) -> Result<Self, ShapeError>
+    pub fn new<D, S>(data: D, shape: S) -> Result<Self, ShapeError>
     where
+        Vec<T>: From<D>,
         Shape: From<S>,
     {
+        let data = Vec::from(data);
         let shape = Shape::from(shape);
 
         if data.len() == shape.elements() {
-            Ok(Self::new_unchecked::<Shape>(data, shape))
+            Ok(Array::new_unchecked::<Vec<T>, Shape>(data, shape))
         } else {
             Err(ShapeError {
                 shape,
@@ -135,10 +135,12 @@ impl<T> Array<T> {
         }
     }
 
-    pub fn new_unchecked<S>(data: Vec<T>, shape: S) -> Self
+    pub fn new_unchecked<D, S>(data: D, shape: S) -> Self
     where
+        Vec<T>: From<D>,
         Shape: From<S>,
     {
+        let data = Vec::from(data);
         let shape = Shape::from(shape);
 
         Self {

@@ -137,8 +137,9 @@ impl<S: State> Spectrum<S> {
 }
 
 impl Scs {
-    pub fn new<S>(data: Vec<f64>, shape: S) -> Result<Self, ShapeError>
+    pub fn new<D, S>(data: D, shape: S) -> Result<Self, ShapeError>
     where
+        Vec<f64>: From<D>,
         Shape: From<S>,
     {
         Array::new(data, shape).map(Self::from)
@@ -230,55 +231,51 @@ mod tests {
 
     #[test]
     fn test_marginalize_axis_2d() {
-        let scs = Scs::from_range(0..9, vec![3, 3]).unwrap();
+        let scs = Scs::from_range(0..9, [3, 3]).unwrap();
 
         assert_eq!(
             scs.marginalize_axis(Axis(0)),
-            Scs::new(vec![9., 12., 15.], vec![3]).unwrap()
+            Scs::new([9., 12., 15.], 3).unwrap()
         );
 
         assert_eq!(
             scs.marginalize_axis(Axis(1)),
-            Scs::new(vec![3., 12., 21.], vec![3]).unwrap()
+            Scs::new([3., 12., 21.], 3).unwrap()
         );
     }
 
     #[test]
     fn test_marginalize_axis_3d() {
-        let scs = Scs::from_range(0..27, vec![3, 3, 3]).unwrap();
+        let scs = Scs::from_range(0..27, [3, 3, 3]).unwrap();
 
         assert_eq!(
             scs.marginalize_axis(Axis(0)),
-            Scs::new(
-                vec![27., 30., 33., 36., 39., 42., 45., 48., 51.],
-                vec![3, 3]
-            )
-            .unwrap()
+            Scs::new([27., 30., 33., 36., 39., 42., 45., 48., 51.], [3, 3]).unwrap()
         );
 
         assert_eq!(
             scs.marginalize_axis(Axis(1)),
-            Scs::new(vec![9., 12., 15., 36., 39., 42., 63., 66., 69.], vec![3, 3]).unwrap()
+            Scs::new([9., 12., 15., 36., 39., 42., 63., 66., 69.], [3, 3]).unwrap()
         );
 
         assert_eq!(
             scs.marginalize_axis(Axis(2)),
-            Scs::new(vec![3., 12., 21., 30., 39., 48., 57., 66., 75.], vec![3, 3]).unwrap()
+            Scs::new([3., 12., 21., 30., 39., 48., 57., 66., 75.], [3, 3]).unwrap()
         );
     }
 
     #[test]
     fn test_marginalize_3d() {
-        let scs = Scs::from_range(0..27, vec![3, 3, 3]).unwrap();
+        let scs = Scs::from_range(0..27, [3, 3, 3]).unwrap();
 
-        let expected = Scs::new(vec![90., 117., 144.], vec![3]).unwrap();
+        let expected = Scs::new([90., 117., 144.], [3]).unwrap();
         assert_eq!(scs.marginalize(&[Axis(0), Axis(2)]).unwrap(), expected);
         assert_eq!(scs.marginalize(&[Axis(2), Axis(0)]).unwrap(), expected);
     }
 
     #[test]
     fn test_marginalize_too_many_axes() {
-        let scs = Scs::from_range(0..9, vec![3, 3]).unwrap();
+        let scs = Scs::from_range(0..9, [3, 3]).unwrap();
 
         assert_eq!(
             scs.marginalize(&[Axis(0), Axis(1)]),
@@ -291,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_marginalize_duplicate_axis() {
-        let scs = Scs::from_range(0..27, vec![3, 3, 3]).unwrap();
+        let scs = Scs::from_range(0..27, [3, 3, 3]).unwrap();
 
         assert_eq!(
             scs.marginalize(&[Axis(1), Axis(1)]),
@@ -301,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_marginalize_axis_out_ouf_bounds() {
-        let scs = Scs::from_range(0..9, vec![3, 3]).unwrap();
+        let scs = Scs::from_range(0..9, [3, 3]).unwrap();
 
         assert_eq!(
             scs.marginalize(&[Axis(2)]),

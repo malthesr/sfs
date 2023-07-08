@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_iter_fused() {
-        let array = Array::new(vec![0.0, 1.0], vec![2, 1]).unwrap();
+        let array = Array::new([0.0, 1.0], [2, 1]).unwrap();
         let view = array.get_axis(Axis(0), 0).unwrap();
         let mut iter = view.iter();
 
