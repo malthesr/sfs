@@ -78,11 +78,11 @@ impl<T> Array<T> {
             None
         } else {
             let offset = index * self.strides[axis.0];
-            let data = &self.data;
+            let data = &self.data[offset..];
             let shape = self.shape.remove_axis(axis);
             let strides = self.strides.remove_axis(axis);
 
-            Some(View::new_unchecked(data, offset, shape, strides))
+            Some(View::new_unchecked(data, shape, strides))
         }
     }
 

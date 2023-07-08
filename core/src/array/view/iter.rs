@@ -6,38 +6,41 @@ use super::View;
 pub struct Iter<'a, T> {
     view: View<'a, T>,
     index: usize,
-    coords: Vec<usize>,
-    first: bool,
+    coords: Option<Vec<usize>>,
 }
 
 impl<'a, T> Iter<'a, T> {
     pub(super) fn new(view: View<'a, T>) -> Self {
         Self {
-            coords: vec![0; view.shape.len()],
             view,
             index: 0,
-            first: true,
+            coords: None,
         }
     }
 
-    fn impl_next(&mut self, dim: usize) -> Option<<Self as Iterator>::Item> {
-        if self.first {
-            self.first = false;
-            return Some(&self.view.data[self.view.offset]);
-        }
+    fn backstride(&self, axis: usize) -> usize {
+        self.view.strides[axis] * (self.view.shape[axis] - 1)
+    }
 
-        self.coords[dim] += 1;
+    fn impl_next_rec(&mut self, axis: usize) -> Option<<Self as Iterator>::Item> {
+        let coords = if let Some(coords) = self.coords.as_mut() {
+            coords
+        } else {
+            self.coords = Some(vec![0; self.view.dimensions()]);
+            return self.view.data.first();
+        };
 
-        if self.coords[dim] < self.view.shape[dim] {
-            self.index += self.view.strides[dim];
+        coords[axis] += 1;
 
-            Some(&self.view.data[self.view.offset..][self.index])
-        } else if dim > 0 {
-            self.coords[dim] = 0;
-            let backstride = self.view.strides[dim] * (self.view.shape[dim] - 1);
-            self.index -= backstride;
+        if coords[axis] < self.view.shape[axis] {
+            self.index += self.view.strides[axis];
 
-            self.impl_next(dim - 1)
+            Some(&self.view.data[self.index])
+        } else if axis > 0 {
+            coords[axis] = 0;
+            self.index -= self.backstride(axis);
+
+            self.impl_next_rec(axis - 1)
         } else {
             None
         }
@@ -48,7 +51,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.impl_next(self.view.shape.len() - 1)
+        self.impl_next_rec(self.view.dimensions() - 1)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
