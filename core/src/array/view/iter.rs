@@ -65,6 +65,58 @@ impl<'a, T> FusedIterator for Iter<'a, T> {}
 mod tests {
     use crate::{array::Axis, Array};
 
+    macro_rules! assert_iter_eq {
+        ($array:ident [axis: $axis:literal, index: $index:literal], [$($expected:literal),* $(,)?] $(,)?) => {
+            assert_eq!(
+                Vec::from_iter($array.index_axis(Axis($axis), $index).iter().copied()),
+                vec![$($expected),+],
+            );
+        };
+    }
+
+    #[test]
+    fn test_iter_2x2() {
+        let array = Array::from_iter(0..4, [2, 2]).unwrap();
+
+        assert_iter_eq!(array[axis: 0, index: 0], [0, 1]);
+        assert_iter_eq!(array[axis: 0, index: 1], [2, 3]);
+
+        assert_iter_eq!(array[axis: 1, index: 0], [0, 2]);
+        assert_iter_eq!(array[axis: 1, index: 1], [1, 3]);
+    }
+
+    #[test]
+    fn test_iter_2x3x2() {
+        let array = Array::from_iter(0..12, [2, 3, 2]).unwrap();
+
+        assert_iter_eq!(array[axis: 0, index: 0], [0, 1, 2, 3, 4, 5]);
+        assert_iter_eq!(array[axis: 0, index: 1], [6, 7, 8, 9, 10, 11]);
+
+        assert_iter_eq!(array[axis: 1, index: 0], [0, 1, 6, 7]);
+        assert_iter_eq!(array[axis: 1, index: 1], [2, 3, 8, 9]);
+        assert_iter_eq!(array[axis: 1, index: 2], [4, 5, 10, 11]);
+
+        assert_iter_eq!(array[axis: 2, index: 0], [0, 2, 4, 6, 8, 10]);
+        assert_iter_eq!(array[axis: 2, index: 1], [1, 3, 5, 7, 9, 11]);
+    }
+
+    #[test]
+    fn test_iter_2x1x2x3() {
+        let array = Array::from_iter(0..12, [2, 1, 2, 3]).unwrap();
+
+        assert_iter_eq!(array[axis: 0, index: 0], [0, 1, 2, 3, 4, 5]);
+        assert_iter_eq!(array[axis: 0, index: 1], [6, 7, 8, 9, 10, 11]);
+
+        assert_iter_eq!(array[axis: 1, index: 0], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+
+        assert_iter_eq!(array[axis: 2, index: 0], [0, 1, 2, 6, 7, 8]);
+        assert_iter_eq!(array[axis: 2, index: 1], [3, 4, 5, 9, 10, 11]);
+
+        assert_iter_eq!(array[axis: 3, index: 0], [0, 3, 6, 9]);
+        assert_iter_eq!(array[axis: 3, index: 1], [1, 4, 7, 10]);
+        assert_iter_eq!(array[axis: 3, index: 2], [2, 5, 8, 11]);
+    }
+
     #[test]
     fn test_iter_fused() {
         let array = Array::new([0.0, 1.0], [2, 1]).unwrap();

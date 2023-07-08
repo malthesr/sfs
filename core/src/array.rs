@@ -101,6 +101,11 @@ impl<T> Array<T> {
         }
     }
 
+    pub fn index_axis(&self, axis: Axis, index: usize) -> View<'_, T> {
+        self.get_axis(axis, index)
+            .expect("axis or index out of bounds")
+    }
+
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.data.iter()
     }
