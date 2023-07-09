@@ -50,11 +50,15 @@ impl<'a> IndicesIter<'a> {
         self.shape
     }
 
-    pub(super) fn new<T>(array: &'a Array<T>) -> Self {
+    pub(crate) fn new<T>(array: &'a Array<T>) -> Self {
+        Self::from_shape(array.shape())
+    }
+
+    pub fn from_shape(shape: &'a Shape) -> Self {
         Self {
-            shape: array.shape(),
+            shape,
             index: 0,
-            total: array.shape.iter().product::<usize>(),
+            total: shape.elements(),
         }
     }
 }
