@@ -76,7 +76,7 @@ mod tests {
             let mut actual = Vec::new();
 
             for _ in 0..expected.len() {
-                assert_eq!(dbg!(iter.len()), dbg!(len));
+                assert_eq!(iter.len(), len);
                 len -= 1;
                 actual.push(iter.next().unwrap());
             }

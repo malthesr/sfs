@@ -14,29 +14,43 @@ pub use folded::Folded;
 
 pub mod stat;
 
-use crate::array::{Array, Axis, Shape, ShapeError};
+use crate::{
+    array::{Array, Axis, Shape, ShapeError},
+    site::{Projection, ProjectionError},
+};
 
 mod seal {
     #![deny(missing_docs)]
     pub trait Sealed {}
 }
 use seal::Sealed;
-pub trait State: Sealed {}
+pub trait State: Sealed {
+    #[doc(hidden)]
+    fn debug_name() -> &'static str;
+}
 
 #[derive(Copy, Clone, Debug)]
 pub struct Frequencies;
 impl Sealed for Frequencies {}
-impl State for Frequencies {}
+impl State for Frequencies {
+    fn debug_name() -> &'static str {
+        "Sfs"
+    }
+}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Counts;
 impl Sealed for Counts {}
-impl State for Counts {}
+impl State for Counts {
+    fn debug_name() -> &'static str {
+        "Scs"
+    }
+}
 
 pub type Sfs = Spectrum<Frequencies>;
 pub type Scs = Spectrum<Counts>;
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct Spectrum<S: State> {
     array: Array<f64>,
     state: PhantomData<S>,
@@ -49,6 +63,14 @@ impl<S: State> Spectrum<S> {
 
     pub fn elements(&self) -> usize {
         self.array.elements()
+    }
+
+    pub fn fold(&self) -> Folded<S> {
+        Folded::from_spectrum(self)
+    }
+
+    pub fn inner(&self) -> &Array<f64> {
+        &self.array
     }
 
     pub fn into_normalized(mut self) -> Sfs {
@@ -118,8 +140,19 @@ impl<S: State> Spectrum<S> {
         spectrum
     }
 
-    pub fn fold(&self) -> Folded<S> {
-        Folded::from_spectrum(self)
+    pub fn project<T>(&self, to: T) -> Result<Self, ProjectionError>
+    where
+        Shape: From<T>,
+    {
+        let to = Shape::from(to);
+        let mut projection = Projection::new(self.shape(), &to)?;
+        let mut projected = Scs::from_zeros::<Shape>(to);
+
+        for (&weight, count) in self.array.iter().zip(self.array.iter_indices()) {
+            projection.project_to_weighted(&count, &mut projected, weight)?;
+        }
+
+        Ok(projected.into_state_unchecked())
     }
 
     pub fn normalize(&mut self) {
@@ -137,6 +170,10 @@ impl<S: State> Spectrum<S> {
 }
 
 impl Scs {
+    pub fn inner_mut(&mut self) -> &mut Array<f64> {
+        &mut self.array
+    }
+
     pub fn new<D, S>(data: D, shape: S) -> Result<Self, ShapeError>
     where
         Vec<f64>: From<D>,
@@ -166,6 +203,14 @@ impl<S: State> Clone for Spectrum<S> {
             array: self.array.clone(),
             state: PhantomData,
         }
+    }
+}
+
+impl<S: State> fmt::Debug for Spectrum<S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct(S::debug_name())
+            .field("array", &self.array)
+            .finish()
     }
 }
 
@@ -228,6 +273,18 @@ impl std::error::Error for MarginalizationError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::approx::ApproxEq;
+
+    impl<S: State> ApproxEq for Spectrum<S> {
+        const DEFAULT_EPSILON: Self::Epsilon = <f64 as ApproxEq>::DEFAULT_EPSILON;
+
+        type Epsilon = <f64 as ApproxEq>::Epsilon;
+
+        fn approx_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+            self.array.approx_eq(&other.array, epsilon)
+        }
+    }
 
     #[test]
     fn test_marginalize_axis_2d() {
@@ -307,5 +364,21 @@ mod tests {
                 dimensions: 2
             }),
         );
+    }
+
+    #[test]
+    fn test_project_7_to_3() {
+        let scs = Scs::from_range(0..7, 7).unwrap();
+        let projected = scs.project(3).unwrap();
+        let expected = Scs::new([2.333333, 7.0, 11.666667], 3).unwrap();
+        assert_approx_eq!(projected, expected, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_project_3x3_to_2x2() {
+        let scs = Scs::from_range(0..9, [3, 3]).unwrap();
+        let projected = scs.project([2, 2]).unwrap();
+        let expected = Scs::new([3.0, 6.0, 12.0, 15.0], [2, 2]).unwrap();
+        assert_approx_eq!(projected, expected, epsilon = 1e-6);
     }
 }

@@ -232,3 +232,25 @@ impl fmt::Display for ShapeError {
 }
 
 impl std::error::Error for ShapeError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::approx::ApproxEq;
+
+    impl<T> ApproxEq for Array<T>
+    where
+        T: ApproxEq,
+    {
+        const DEFAULT_EPSILON: Self::Epsilon = T::DEFAULT_EPSILON;
+
+        type Epsilon = T::Epsilon;
+
+        fn approx_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+            self.data.approx_eq(&other.data, epsilon)
+                && self.shape == other.shape
+                && self.strides == other.strides
+        }
+    }
+}

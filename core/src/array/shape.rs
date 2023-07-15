@@ -21,6 +21,10 @@ impl Deref for Axis {
 pub struct Shape(pub Vec<usize>);
 
 impl Shape {
+    pub fn dimensions(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn elements(&self) -> usize {
         self.iter().product()
     }
