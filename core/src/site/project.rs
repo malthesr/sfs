@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{array::Shape, Scs};
 
 mod hypergeometric;
@@ -139,6 +141,20 @@ impl From<DistributionError> for ProjectionError {
         }
     }
 }
+
+impl fmt::Display for ProjectionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ProjectionError::InvalidProjection => f.write_str("invalid projection"),
+            ProjectionError::MismatchingDimensions => {
+                f.write_str("projection dimensions do not match")
+            }
+            ProjectionError::MismatchingShapes => f.write_str("projection shapes do not match"),
+        }
+    }
+}
+
+impl std::error::Error for ProjectionError {}
 
 #[cfg(test)]
 mod tests {

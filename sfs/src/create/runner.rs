@@ -21,13 +21,11 @@ impl Runner {
     }
 
     pub fn run(&mut self) -> Result<Scs, Error> {
-        let mut sfs = Scs::from_zeros(self.reader.shape());
+        let mut scs = Scs::from_zeros(self.reader.shape());
 
-        while let Some(allele_counts) = self.reader.read_allele_counts()? {
-            match allele_counts {
-                Ok(allele_counts) => {
-                    sfs[allele_counts] += 1.0;
-                }
+        while let Some(site) = self.reader.read_site()? {
+            match site {
+                Ok(site) => site.try_add_to(&mut scs)?,
                 Err(error) => {
                     if self.strict {
                         Err(error)?
@@ -40,7 +38,7 @@ impl Runner {
 
         self.warnings.summarize();
 
-        Ok(sfs)
+        Ok(scs)
     }
 }
 

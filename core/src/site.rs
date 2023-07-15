@@ -34,6 +34,10 @@ impl Site {
         }
     }
 
+    pub fn reset_count(&mut self) {
+        self.count.iter_mut().for_each(|x| *x = 0);
+    }
+
     pub fn try_add_to(&mut self, scs: &mut Scs) -> Result<(), ProjectionError> {
         match &mut self.projected {
             Projected::Projected(projection) => projection.project_to(&self.count, scs),
