@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum Genotype {
     Zero = 0,
@@ -19,30 +19,39 @@ impl Genotype {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[repr(u8)]
-pub enum ParseGenotypeError {
-    MissingGenotype = 0,
-    MissingAllele = 1,
-    Multiallelic = 2,
-    NotDiploid = 3,
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum GenotypeResult {
+    Genotype(Genotype),
+    Skipped(GenotypeSkipped),
+    Error(GenotypeError),
 }
 
-impl ParseGenotypeError {
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum GenotypeSkipped {
+    Missing,
+    Multiallelic,
+}
+
+impl GenotypeSkipped {
     pub fn reason(&self) -> &'static str {
         match self {
-            Self::MissingGenotype => "missing genotype",
-            Self::MissingAllele => "missing genotype allele",
-            Self::Multiallelic => "multiallelic genotype",
-            Self::NotDiploid => "genotype not diploid",
+            Self::Missing => "missing",
+            Self::Multiallelic => "multiallelic",
         }
     }
 }
 
-impl fmt::Display for ParseGenotypeError {
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum GenotypeError {
+    PloidyError,
+}
+
+impl fmt::Display for GenotypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.reason())
+        match self {
+            GenotypeError::PloidyError => f.write_str("genotype not diploid"),
+        }
     }
 }
 
-impl std::error::Error for ParseGenotypeError {}
+impl std::error::Error for GenotypeError {}

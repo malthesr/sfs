@@ -59,6 +59,31 @@ impl Projection {
         }
     }
 
+    pub fn project<'a>(&'a self, from: &'a [usize]) -> Result<Projected<'a>, ProjectError> {
+        if self.dimensions() == from.len() {
+            if let Some(dimension) = self
+                .to
+                .iter()
+                .zip(from.iter())
+                .enumerate()
+                .find_map(|(i, (&shape, &count))| (shape - 1 < count).then_some(i))
+            {
+                Err(ProjectError::InvalidProjection {
+                    dimension,
+                    from: from[dimension],
+                    to: self.to[dimension],
+                })
+            } else {
+                Ok(self.project_unchecked(from))
+            }
+        } else {
+            Err(ProjectError::UnequalDimensions {
+                from: from.len(),
+                to: self.dimensions(),
+            })
+        }
+    }
+
     pub fn project_unchecked<'a>(&'a self, from: &'a [usize]) -> Projected<'a> {
         Projected::new_unchecked(self, from)
     }
@@ -201,6 +226,43 @@ impl fmt::Display for ProjectionError {
 }
 
 impl std::error::Error for ProjectionError {}
+#[derive(Debug)]
+pub enum ProjectError {
+    InvalidProjection {
+        dimension: usize,
+        from: usize,
+        to: usize,
+    },
+    UnequalDimensions {
+        from: usize,
+        to: usize,
+    },
+}
+
+impl fmt::Display for ProjectError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ProjectError::InvalidProjection {
+                dimension,
+                from,
+                to,
+            } => {
+                write!(
+                    f,
+                    "cannot project from shape {from} to shape {to} in dimension {dimension}"
+                )
+            }
+            ProjectError::UnequalDimensions { from, to } => {
+                write!(
+                    f,
+                    "cannot project from one number of dimensions ({from}) to another ({to})"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ProjectError {}
 
 #[cfg(test)]
 mod tests {

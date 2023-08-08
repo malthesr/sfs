@@ -14,6 +14,12 @@ where
     }
 }
 
+impl AsRef<str> for Sample {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Population {
     Named(String),
@@ -39,6 +45,10 @@ pub struct PopulationId(pub usize);
 pub struct SampleMap(IndexMap<Sample, PopulationId>);
 
 impl SampleMap {
+    pub fn by_index(&self, index: usize) -> Option<&Sample> {
+        self.0.get_index(index).map(|opt| opt.0)
+    }
+
     pub fn from_path<P>(path: P) -> io::Result<Self>
     where
         P: AsRef<Path>,
@@ -69,6 +79,14 @@ impl SampleMap {
         self.0.get(sample).copied()
     }
 
+    pub fn index_of(&self, sample: &Sample) -> Option<usize> {
+        self.0.get_index_of(sample)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn number_of_populations(&self) -> usize {
         self.population_sizes().len()
     }
@@ -83,10 +101,6 @@ impl SampleMap {
 
     pub fn samples(&self) -> impl Iterator<Item = &Sample> {
         self.0.keys()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
     }
 }
 

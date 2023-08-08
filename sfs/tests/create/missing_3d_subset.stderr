@@ -1,2 +1,4 @@
-[sfs  warn] Skipping record at position 'chr1:1' due to missing genotype. This error will be shown only once, with a summary at the end.
-[sfs  warn] Skipped 2 records due to missing genotype.
+[sfs  info] Skipping site 'chr1:1' due to too many missing and/or multiallelic genotypes. This message will be shown only once, with a summary at the end. Increase verbosity for more information.
+[sfs debug] Skipping sample 'sample0' at site 'chr1:1'. Reason: 'missing'.
+[sfs debug] Skipping sample 'sample4' at site 'chr1:2'. Reason: 'missing'.
+[sfs  info] Skipped 2/5 sites due to missing and/or multiallelic genotypes. Project data (or relax projection) as necessary to keep more sites.

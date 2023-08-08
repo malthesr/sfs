@@ -6,7 +6,10 @@ use noodles_bgzf as bgzf;
 use noodles_vcf as vcf;
 use noodles_vcf::record::genotypes::sample::value::genotype::Genotype as VcfGenotype;
 
-use super::{sample_map::Sample, Genotype, GenotypeReader, ParseGenotypeError};
+use super::{
+    sample_map::Sample, Genotype, GenotypeError, GenotypeReader, GenotypeResult, GenotypeSkipped,
+    ReadStatus,
+};
 
 pub struct Reader<R> {
     pub inner: bcf::Reader<bgzf::Reader<R>>,
@@ -39,18 +42,26 @@ where
         })
     }
 
-    fn read_genotypes(&mut self) -> io::Result<Option<Vec<Option<VcfGenotype>>>> {
-        if self.inner.read_lazy_record(&mut self.buf)? > 0 {
-            let vcf_genotypes = self
-                .buf
-                .genotypes()
-                .try_into_vcf_record_genotypes(&self.header, self.string_maps.strings())?
-                .genotypes()
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    fn read_genotypes(&mut self) -> ReadStatus<Vec<Option<VcfGenotype>>> {
+        match self.inner.read_lazy_record(&mut self.buf) {
+            Ok(0) => ReadStatus::Done,
+            Ok(_) => {
+                let result = self
+                    .buf
+                    .genotypes()
+                    .try_into_vcf_record_genotypes(&self.header, self.string_maps.strings())
+                    .and_then(|genotypes| {
+                        genotypes
+                            .genotypes()
+                            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+                    });
 
-            Ok(Some(vcf_genotypes))
-        } else {
-            Ok(None)
+                match result {
+                    Ok(genotypes) => ReadStatus::Read(genotypes),
+                    Err(e) => ReadStatus::Error(e),
+                }
+            }
+            Err(e) => ReadStatus::Error(e),
         }
     }
 }
@@ -93,22 +104,13 @@ where
         self.buf.position().into()
     }
 
-    fn read_genotypes(&mut self) -> io::Result<Option<Vec<Result<Genotype, ParseGenotypeError>>>> {
-        match self.read_genotypes()? {
-            Some(vcf_genotypes) => {
-                let genotypes = vcf_genotypes
-                    .into_iter()
-                    .map(|vcf_genotype| {
-                        vcf_genotype
-                            .ok_or(ParseGenotypeError::MissingGenotype)
-                            .and_then(Genotype::try_from)
-                    })
-                    .collect::<Vec<Result<_, _>>>();
-
-                Ok(Some(genotypes))
-            }
-            None => Ok(None),
-        }
+    fn read_genotypes(&mut self) -> ReadStatus<Vec<GenotypeResult>> {
+        self.read_genotypes().map(|vcf_genotypes| {
+            vcf_genotypes
+                .into_iter()
+                .map(GenotypeResult::from)
+                .collect()
+        })
     }
 
     fn samples(&self) -> &[Sample] {
@@ -116,19 +118,20 @@ where
     }
 }
 
-impl TryFrom<VcfGenotype> for Genotype {
-    type Error = ParseGenotypeError;
-
-    fn try_from(vcf_genotype: VcfGenotype) -> Result<Self, Self::Error> {
-        match &vcf_genotype[..] {
-            [a, b] => match (a.position(), b.position()) {
-                (Some(a), Some(b)) => {
-                    Self::try_from_raw(a + b).ok_or(ParseGenotypeError::Multiallelic)
-                }
-                (None, None) => Err(ParseGenotypeError::MissingGenotype),
-                (Some(_), None) | (None, Some(_)) => Err(ParseGenotypeError::MissingAllele),
+impl From<Option<VcfGenotype>> for GenotypeResult {
+    fn from(genotype: Option<VcfGenotype>) -> Self {
+        match genotype {
+            Some(genotype) => match &genotype[..] {
+                [a, b] => match (a.position(), b.position()) {
+                    (Some(a), Some(b)) => match Genotype::try_from_raw(a + b) {
+                        Some(genotype) => GenotypeResult::Genotype(genotype),
+                        None => GenotypeResult::Skipped(GenotypeSkipped::Multiallelic),
+                    },
+                    _ => GenotypeResult::Skipped(GenotypeSkipped::Missing),
+                },
+                _ => GenotypeResult::Error(GenotypeError::PloidyError),
             },
-            _ => Err(ParseGenotypeError::NotDiploid),
+            None => GenotypeResult::Skipped(GenotypeSkipped::Missing),
         }
     }
 }
@@ -142,25 +145,25 @@ mod tests {
     #[test]
     fn test_genotype_from_vcf_genotype() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("0/0")?),
-            Ok(Genotype::Zero)
+            GenotypeResult::from(Some(VcfGenotype::from_str("0/0")?)),
+            GenotypeResult::Genotype(Genotype::Zero)
         );
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("0/1")?),
-            Ok(Genotype::One)
+            GenotypeResult::from(Some(VcfGenotype::from_str("0/1")?)),
+            GenotypeResult::Genotype(Genotype::One)
         );
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("1/1")?),
-            Ok(Genotype::Two)
+            GenotypeResult::from(Some(VcfGenotype::from_str("1/1")?)),
+            GenotypeResult::Genotype(Genotype::Two)
         );
 
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("0|1")?),
-            Ok(Genotype::One)
+            GenotypeResult::from(Some(VcfGenotype::from_str("0|1")?)),
+            GenotypeResult::Genotype(Genotype::One)
         );
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("1|0")?),
-            Ok(Genotype::One)
+            GenotypeResult::from(Some(VcfGenotype::from_str("1|0")?)),
+            GenotypeResult::Genotype(Genotype::One)
         );
 
         Ok(())
@@ -170,8 +173,8 @@ mod tests {
     fn test_genotype_from_vcf_genotype_missing_genotype() -> Result<(), Box<dyn std::error::Error>>
     {
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("./.")?),
-            Err(ParseGenotypeError::MissingGenotype),
+            GenotypeResult::from(Some(VcfGenotype::from_str("./.")?)),
+            GenotypeResult::Skipped(GenotypeSkipped::Missing),
         );
 
         Ok(())
@@ -180,13 +183,13 @@ mod tests {
     #[test]
     fn test_genotype_from_vcf_genotype_missing_allele() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("./0")?),
-            Err(ParseGenotypeError::MissingAllele),
+            GenotypeResult::from(Some(VcfGenotype::from_str("./0")?)),
+            GenotypeResult::Skipped(GenotypeSkipped::Missing),
         );
 
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("1|.")?),
-            Err(ParseGenotypeError::MissingAllele),
+            GenotypeResult::from(Some(VcfGenotype::from_str("1|.")?)),
+            GenotypeResult::Skipped(GenotypeSkipped::Missing),
         );
 
         Ok(())
@@ -195,8 +198,8 @@ mod tests {
     #[test]
     fn test_genotype_from_vcf_genotype_multiallelic() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("1/2")?),
-            Err(ParseGenotypeError::Multiallelic),
+            GenotypeResult::from(Some(VcfGenotype::from_str("1/2")?)),
+            GenotypeResult::Skipped(GenotypeSkipped::Multiallelic),
         );
 
         Ok(())
@@ -205,13 +208,13 @@ mod tests {
     #[test]
     fn test_genotype_from_vcf_genotype_not_diploid() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("0")?),
-            Err(ParseGenotypeError::NotDiploid),
+            GenotypeResult::from(Some(VcfGenotype::from_str("0")?)),
+            GenotypeResult::Error(GenotypeError::PloidyError),
         );
 
         assert_eq!(
-            Genotype::try_from(VcfGenotype::from_str("0/0/0")?),
-            Err(ParseGenotypeError::NotDiploid),
+            GenotypeResult::from(Some(VcfGenotype::from_str("0/0/0")?)),
+            GenotypeResult::Error(GenotypeError::PloidyError),
         );
 
         Ok(())

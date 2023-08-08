@@ -1,95 +1,96 @@
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 
 use sfs_core::{
-    reader::{ParseGenotypeError, Reader},
+    reader::{ReadStatus, Reader, Site},
     Scs,
 };
 
 pub struct Runner {
     reader: Reader,
-    warnings: Warnings,
     strict: bool,
+    sites: usize,
+    skipped: usize,
 }
 
 impl Runner {
+    fn handle_skipped_site(&mut self) -> Result<(), Error> {
+        let contig = self.reader.current_contig();
+        let position = self.reader.current_position();
+
+        if self.strict {
+            return Err(anyhow!(
+                "Missing or multiallelic genotype at site '{contig}:{position}' in strict mode. \
+                Filter BCF or disable strict mode and try again. \
+                Increase verbosity for more information."
+            ));
+        } else {
+            if self.skipped == 0 {
+                log::info!(
+                    "Skipping site '{contig}:{position}' due to too many missing and/or \
+                    multiallelic genotypes. This message will be shown only once, with a summary \
+                    at the end. Increase verbosity for more information."
+                );
+            }
+
+            self.skipped += 1;
+        }
+
+        for (sample, reason) in self
+            .reader
+            .current_skips()
+            .map(|(sample, skip)| (sample.as_ref(), skip.reason()))
+        {
+            log::debug!(
+                "Skipping sample '{sample}' at site '{contig}:{position}'. Reason: '{reason}'.",
+            )
+        }
+
+        Ok(())
+    }
+
     pub fn new(reader: Reader, strict: bool) -> Result<Self, Error> {
         Ok(Self {
             reader,
-            warnings: Warnings::default(),
             strict,
+            sites: 0,
+            skipped: 0,
         })
     }
 
     pub fn run(&mut self) -> Result<Scs, Error> {
         let mut scs = Scs::from_zeros(self.reader.shape());
 
-        while let Some(site) = self.reader.read_site()? {
-            match site {
-                Ok(site) => {
-                    scs[&site] += 1.0;
+        loop {
+            match self.reader.read_site() {
+                ReadStatus::Read(Site::Standard(counts)) => {
+                    scs[&counts] += 1.0;
                 }
-                Err(error) => {
-                    if self.strict {
-                        Err(error)?
-                    } else {
-                        self.warnings.warn_once(&self.reader, error);
-                    }
+                ReadStatus::Read(Site::Projected(projected)) => {
+                    projected.add_unchecked(&mut scs);
                 }
+                ReadStatus::Read(Site::InsufficientData) => {
+                    self.handle_skipped_site()?;
+                }
+                ReadStatus::Error(e) => return Err(e.into()),
+                ReadStatus::Done => break,
             }
+
+            self.sites += 1;
         }
 
-        self.warnings.summarize();
+        self.summarize_skipped_sites();
 
         Ok(scs)
     }
-}
 
-const NUMBER_OF_ERRORS: usize = 4;
-const ERROR_VARIANTS: [ParseGenotypeError; NUMBER_OF_ERRORS] = [
-    ParseGenotypeError::MissingGenotype,
-    ParseGenotypeError::MissingAllele,
-    ParseGenotypeError::Multiallelic,
-    ParseGenotypeError::NotDiploid,
-];
-
-#[derive(Clone, Debug, Default)]
-struct Warnings {
-    counts: [usize; NUMBER_OF_ERRORS],
-}
-
-impl Warnings {
-    pub fn count(&self, error: ParseGenotypeError) -> usize {
-        self.counts[error as u8 as usize]
-    }
-
-    pub fn count_mut(&mut self, error: ParseGenotypeError) -> &mut usize {
-        self.counts.get_mut(error as u8 as usize).unwrap()
-    }
-
-    pub fn warn_once(&mut self, reader: &Reader, error: ParseGenotypeError) {
-        if self.count(error) == 0 {
-            let position = reader.current_position();
-            let contig = reader.current_contig();
-            let reason = error.reason();
-
-            log::warn!(
-                "Skipping record at position '{contig}:{position}' due to {reason}. \
-                This error will be shown only once, with a summary at the end."
+    fn summarize_skipped_sites(&self) {
+        if self.skipped > 0 {
+            log::info!(
+                "Skipped {skipped}/{total} sites due to missing and/or multiallelic genotypes. \
+                Project data (or relax projection) as necessary to keep more sites.",
+                skipped = self.skipped,
+                total = self.sites,
             );
-        }
-
-        *self.count_mut(error) += 1;
-    }
-
-    pub fn summarize(&self) {
-        for error in ERROR_VARIANTS {
-            let count = self.count(error);
-
-            if count > 0 {
-                let reason = error.reason();
-
-                log::warn!("Skipped {count} records due to {reason}.");
-            }
         }
     }
 }

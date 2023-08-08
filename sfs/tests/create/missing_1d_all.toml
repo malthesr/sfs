@@ -1,4 +1,5 @@
 args = [
   "create",
+  "-v",
   "tests/create/missing.bcf"
 ]
