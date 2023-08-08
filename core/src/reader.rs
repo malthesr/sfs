@@ -7,8 +7,8 @@ mod genotype;
 pub use genotype::{Genotype, GenotypeError, GenotypeResult, GenotypeSkipped};
 
 pub mod sample_map;
+use sample_map::Sample;
 pub use sample_map::SampleMap;
-use sample_map::{PopulationId, Sample};
 
 pub mod bcf;
 
@@ -61,17 +61,6 @@ pub struct Reader {
 }
 
 impl Reader {
-    pub fn current_skips(&self) -> impl Iterator<Item = (&Sample, &GenotypeSkipped)> {
-        self.skips
-            .iter()
-            .map(|(i, skip)| (self.sample_map.by_index(*i).unwrap(), skip))
-    }
-
-    fn reset(&mut self) {
-        self.counts.iter_mut().for_each(|x| *x = 0);
-        self.skips.clear();
-    }
-
     pub fn current_contig(&self) -> &str {
         self.reader.current_contig()
     }
@@ -80,13 +69,23 @@ impl Reader {
         self.reader.current_position()
     }
 
-    fn new_unchecked(reader: Box<dyn GenotypeReader>, sample_map: SampleMap) -> Self {
+    pub fn current_skips(&self) -> impl Iterator<Item = (&Sample, &GenotypeSkipped)> {
+        self.skips
+            .iter()
+            .map(|(i, skip)| (self.sample_map.by_index(*i).unwrap(), skip))
+    }
+
+    fn new_unchecked(
+        reader: Box<dyn GenotypeReader>,
+        sample_map: SampleMap,
+        projection: Option<Projection>,
+    ) -> Self {
         let site = vec![0; sample_map.number_of_populations()];
 
         Self {
             reader,
             sample_map,
-            projection: None,
+            projection,
             counts: site,
             skips: Vec::new(),
         }
@@ -137,17 +136,16 @@ impl Reader {
         ReadStatus::Read(site)
     }
 
+    fn reset(&mut self) {
+        self.counts.iter_mut().for_each(|x| *x = 0);
+        self.skips.clear();
+    }
+
     pub fn samples(&self) -> &[Sample] {
         self.reader.samples()
     }
 
     pub fn shape(&self) -> Shape {
-        let population_sizes = self.sample_map.population_sizes();
-
-        Shape(
-            (0..population_sizes.len())
-                .map(|id| 1 + 2 * population_sizes.get(&PopulationId(id)).unwrap())
-                .collect(),
-        )
+        self.sample_map.shape()
     }
 }

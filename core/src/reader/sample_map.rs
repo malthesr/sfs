@@ -2,6 +2,8 @@ use std::{collections::HashMap, fs::File, io, path::Path};
 
 use indexmap::{IndexMap, IndexSet};
 
+use crate::array::Shape;
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Sample(pub String);
 
@@ -101,6 +103,16 @@ impl SampleMap {
 
     pub fn samples(&self) -> impl Iterator<Item = &Sample> {
         self.0.keys()
+    }
+
+    pub fn shape(&self) -> Shape {
+        let population_sizes = self.population_sizes();
+
+        Shape(
+            (0..population_sizes.len())
+                .map(|id| 1 + 2 * population_sizes.get(&PopulationId(id)).unwrap())
+                .collect(),
+        )
     }
 }
 

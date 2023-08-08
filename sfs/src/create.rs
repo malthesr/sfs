@@ -46,10 +46,20 @@ pub struct Create {
     #[arg(short = 'S', long, conflicts_with = "samples", value_name = "FILE")]
     samples_file: Option<PathBuf>,
 
+    /// Hypergeometric projection of the SFS.
+    ///
+    /// By default, any site with missing and/or multiallelic genotypes are skipped. If this leads
+    /// to an unacceptable amount of skipped sites, the SFS can be projected to a lower shape, by
+    /// hypergeometric sampling. Use a comma-separated list of values giving the new shape of the
+    /// SFS. For example, `--project 7,5` would project a two-dimensional SFS down to three diploid
+    /// individuals in the first dimension and two in the second.
+    #[clap(short = 'p', long, use_value_delimiter = true, value_name = "INT,...")]
+    pub projection: Option<Vec<usize>>,
+
     /// Promote warnings to errors.
     ///
-    /// By default, missing genotypes as well as genotypes that are not diploid and diallelic will
-    /// skipped with a warning. Using this flag will cause an error instead of a warning if such
+    /// By default, missing and multiallelic genotypes will be skipped and logged. Using this flag
+    /// will cause an error instead of a warning if such
     /// genotypes are encountered.
     #[arg(long)]
     strict: bool,
@@ -67,14 +77,18 @@ fn parse_key_val(s: &str) -> Result<(String, Option<String>), clap::Error> {
 
 impl Create {
     pub fn run(self) -> Result<(), Error> {
-        let builder = reader::Builder::default().set_threads(self.threads);
+        let mut builder = reader::Builder::default().set_threads(self.threads);
 
-        let builder = if let Some(samples_file) = self.samples_file {
+        builder = if let Some(samples_file) = self.samples_file {
             builder.set_samples_file(samples_file)?
         } else if let Some(samples) = self.samples {
             builder.set_samples(samples)?
         } else {
             builder
+        };
+
+        if let Some(projection) = self.projection {
+            builder = builder.set_projection(projection.into());
         };
 
         let reader = builder.build_from_path_or_stdin(self.input.as_ref())?;
@@ -117,5 +131,12 @@ mod tests {
                 (String::from("sample2"), Some(String::from("group2"))),
             ])
         );
+    }
+
+    #[test]
+    fn test_projection() {
+        let args = parse_subcmd::<Create>("sfs create -p 6,3,9 input.bcf");
+
+        assert_eq!(args.projection, Some(vec![6, 3, 9]));
     }
 }
