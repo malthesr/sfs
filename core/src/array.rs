@@ -42,18 +42,18 @@ impl<T> Array<T> {
     pub fn from_element<S>(element: T, shape: S) -> Self
     where
         T: Clone,
-        Shape: From<S>,
+        S: Into<Shape>,
     {
-        let shape = Shape::from(shape);
+        let shape = shape.into();
         let elements = shape.elements();
 
-        Self::new_unchecked::<_, Shape>(vec![element; elements], shape)
+        Self::new_unchecked(vec![element; elements], shape)
     }
 
     pub fn from_iter<I, S>(iter: I, shape: S) -> Result<Self, ShapeError>
     where
         I: IntoIterator<Item = T>,
-        Shape: From<S>,
+        S: Into<Shape>,
     {
         Self::new(Vec::from_iter(iter), shape)
     }
@@ -124,14 +124,14 @@ impl<T> Array<T> {
 
     pub fn new<D, S>(data: D, shape: S) -> Result<Self, ShapeError>
     where
-        Vec<T>: From<D>,
-        Shape: From<S>,
+        D: Into<Vec<T>>,
+        S: Into<Shape>,
     {
-        let data = Vec::from(data);
-        let shape = Shape::from(shape);
+        let data = data.into();
+        let shape = shape.into();
 
         if data.len() == shape.elements() {
-            Ok(Array::new_unchecked::<Vec<T>, Shape>(data, shape))
+            Ok(Array::new_unchecked(data, shape))
         } else {
             Err(ShapeError {
                 shape,
@@ -142,11 +142,11 @@ impl<T> Array<T> {
 
     pub fn new_unchecked<D, S>(data: D, shape: S) -> Self
     where
-        Vec<T>: From<D>,
-        Shape: From<S>,
+        D: Into<Vec<T>>,
+        S: Into<Shape>,
     {
-        let data = Vec::from(data);
-        let shape = Shape::from(shape);
+        let data = data.into();
+        let shape = shape.into();
 
         Self {
             data,

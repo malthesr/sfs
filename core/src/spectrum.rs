@@ -146,7 +146,7 @@ impl<S: State> Spectrum<S> {
     {
         let to = to.into();
         let projection = Projection::new(self.shape().clone(), to.clone())?;
-        let mut projected = Scs::from_zeros::<Shape>(to);
+        let mut projected = Scs::from_zeros(to);
 
         for (&weight, from) in self.array.iter().zip(self.array.iter_indices()) {
             projected
