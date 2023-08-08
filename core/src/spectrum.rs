@@ -12,8 +12,8 @@ use iter::FrequenciesIter;
 mod folded;
 pub use folded::Folded;
 
-mod project;
-pub use project::Projection;
+pub mod project;
+use project::{Projection, ProjectionError};
 
 pub mod stat;
 
@@ -140,12 +140,12 @@ impl<S: State> Spectrum<S> {
         spectrum
     }
 
-    pub fn project<T>(&self, to: T) -> Result<Self, ()>
+    pub fn project<T>(&self, to: T) -> Result<Self, ProjectionError>
     where
-        Shape: From<T>,
+        T: Into<Shape>,
     {
-        let to = Shape::from(to);
-        let projection = Projection::new_unchecked(self.shape().clone(), to.clone());
+        let to = to.into();
+        let projection = Projection::new(self.shape().clone(), to.clone())?;
         let mut projected = Scs::from_zeros::<Shape>(to);
 
         for (&weight, from) in self.array.iter().zip(self.array.iter_indices()) {

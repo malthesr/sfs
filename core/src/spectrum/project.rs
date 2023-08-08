@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::array::Shape;
 
 mod hypergeometric;
@@ -13,8 +15,50 @@ impl Projection {
         self.from.dimensions()
     }
 
-    pub fn new_unchecked(from: Shape, to: Shape) -> Self {
-        Self { from, to }
+    pub fn new<S>(from: S, to: S) -> Result<Self, ProjectionError>
+    where
+        S: Into<Shape>,
+    {
+        let from = from.into();
+        let to = to.into();
+
+        if from.dimensions() == to.dimensions() {
+            if let Some(dimension) = from
+                .iter()
+                .zip(to.iter())
+                .enumerate()
+                .find_map(|(i, (from, to))| (from < to).then_some(i))
+            {
+                Err(ProjectionError::InvalidProjection {
+                    dimension,
+                    from: from[dimension],
+                    to: to[dimension],
+                })
+            } else {
+                Ok(Self::new_unchecked(from, to))
+            }
+        } else if from.dimensions() == 0 {
+            Err(ProjectionError::Empty)
+        } else {
+            Err(ProjectionError::UnequalDimensions {
+                from: from.dimensions(),
+                to: to.dimensions(),
+            })
+        }
+    }
+
+    pub fn new_unchecked<S>(from: S, to: S) -> Self
+    where
+        S: Into<Shape>,
+    {
+        Self {
+            from: from.into(),
+            to: to.into(),
+        }
+    }
+
+    pub fn project_all_unchecked<'a>(&'a self, from: &'a [usize]) -> ProjectIter<'a> {
+        ProjectIter::new_unchecked(self, from)
     }
 
     fn project_unchecked(&self, from: &[usize], to: &[usize]) -> f64 {
@@ -34,10 +78,6 @@ impl Projection {
             })
             .fold(1.0, |joint, probability| joint * probability)
     }
-
-    pub fn project_all_unchecked<'a>(&'a self, from: &'a [usize]) -> ProjectIter<'a> {
-        ProjectIter::new(self, from)
-    }
 }
 
 #[derive(Debug)]
@@ -53,20 +93,16 @@ impl<'a> ProjectIter<'a> {
         self.to.len()
     }
 
-    fn project_unchecked(&self) -> f64 {
-        self.projection.project_unchecked(self.from, &self.to)
-    }
-
     fn impl_next_rec(&mut self, axis: usize) -> Option<<Self as Iterator>::Item> {
         if self.index == 0 {
             self.index += 1;
-            return Some(self.project_unchecked());
+            return Some(self.project());
         };
 
         self.to[axis] += 1;
         if self.to[axis] < self.projection.to[axis] {
             self.index += 1;
-            Some(self.project_unchecked())
+            Some(self.project())
         } else if axis > 0 {
             self.to[axis] = 0;
             self.impl_next_rec(axis - 1)
@@ -75,13 +111,17 @@ impl<'a> ProjectIter<'a> {
         }
     }
 
-    fn new(projection: &'a Projection, from: &'a [usize]) -> Self {
+    fn new_unchecked(projection: &'a Projection, from: &'a [usize]) -> Self {
         Self {
             projection,
             from,
             to: vec![0; from.len()],
             index: 0,
         }
+    }
+
+    fn project(&self) -> f64 {
+        self.projection.project_unchecked(self.from, &self.to)
     }
 }
 
@@ -93,9 +133,62 @@ impl<'a> Iterator for ProjectIter<'a> {
     }
 }
 
+#[derive(Debug)]
+pub enum ProjectionError {
+    Empty,
+    InvalidProjection {
+        dimension: usize,
+        from: usize,
+        to: usize,
+    },
+    UnequalDimensions {
+        from: usize,
+        to: usize,
+    },
+}
+
+impl fmt::Display for ProjectionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ProjectionError::Empty => f.write_str("cannot project empty shapes"),
+            ProjectionError::InvalidProjection {
+                dimension,
+                from,
+                to,
+            } => {
+                write!(
+                    f,
+                    "cannot project from shape {from} to shape {to} in dimension {dimension}"
+                )
+            }
+            ProjectionError::UnequalDimensions { from, to } => {
+                write!(
+                    f,
+                    "cannot project from one number of dimensions ({from}) to another ({to})"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ProjectionError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_projection_errors() {
+        assert!(matches!(
+            Projection::new(vec![2, 3], vec![1]),
+            Err(ProjectionError::UnequalDimensions { .. })
+        ));
+
+        assert!(matches!(
+            Projection::new([2, 3], [3, 2]),
+            Err(ProjectionError::InvalidProjection { .. })
+        ))
+    }
 
     #[test]
     fn test_project_7_to_3_project_2() {
