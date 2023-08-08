@@ -12,7 +12,7 @@ use sample_map::{PopulationId, Sample};
 
 pub mod bcf;
 
-use crate::{array::Shape, Site};
+use crate::array::Shape;
 
 trait GenotypeReader {
     fn current_contig(&self) -> &str;
@@ -27,7 +27,7 @@ trait GenotypeReader {
 pub struct Reader {
     reader: Box<dyn GenotypeReader>,
     sample_map: SampleMap,
-    site: Site,
+    site: Vec<usize>,
 }
 
 impl Reader {
@@ -40,7 +40,7 @@ impl Reader {
     }
 
     fn new_unchecked(reader: Box<dyn GenotypeReader>, sample_map: SampleMap) -> Self {
-        let site = Site::new_unprojected(sample_map.number_of_populations());
+        let site = vec![0; sample_map.number_of_populations()];
 
         Self {
             reader,
@@ -49,8 +49,8 @@ impl Reader {
         }
     }
 
-    pub fn read_site(&mut self) -> io::Result<Option<Result<&mut Site, ParseGenotypeError>>> {
-        self.site.reset_count();
+    pub fn read_site(&mut self) -> io::Result<Option<Result<&mut [usize], ParseGenotypeError>>> {
+        self.site.iter_mut().for_each(|x| *x = 0);
 
         let Some(genotypes) = self.reader.read_genotypes()? else {
             return Ok(None)
@@ -59,7 +59,7 @@ impl Reader {
         for (sample, genotype) in self.reader.samples().iter().zip(genotypes) {
             match (self.sample_map.get(sample), genotype) {
                 (Some(population_id), Ok(genotype)) => {
-                    self.site.count_mut()[population_id.0] += genotype as u8 as usize;
+                    self.site[population_id.0] += genotype as u8 as usize;
                 }
                 (Some(_), Err(e)) => return Ok(Some(Err(e))),
                 (None, Ok(_) | Err(_)) => continue,

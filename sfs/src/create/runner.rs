@@ -25,7 +25,9 @@ impl Runner {
 
         while let Some(site) = self.reader.read_site()? {
             match site {
-                Ok(site) => site.try_add_to(&mut scs)?,
+                Ok(site) => {
+                    scs[&site] += 1.0;
+                }
                 Err(error) => {
                     if self.strict {
                         Err(error)?

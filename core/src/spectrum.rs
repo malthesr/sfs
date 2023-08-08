@@ -12,12 +12,12 @@ use iter::FrequenciesIter;
 mod folded;
 pub use folded::Folded;
 
+mod project;
+pub use project::Projection;
+
 pub mod stat;
 
-use crate::{
-    array::{Array, Axis, Shape, ShapeError},
-    site::{Projection, ProjectionError},
-};
+use crate::array::{Array, Axis, Shape, ShapeError};
 
 mod seal {
     #![deny(missing_docs)]
@@ -140,16 +140,20 @@ impl<S: State> Spectrum<S> {
         spectrum
     }
 
-    pub fn project<T>(&self, to: T) -> Result<Self, ProjectionError>
+    pub fn project<T>(&self, to: T) -> Result<Self, ()>
     where
         Shape: From<T>,
     {
         let to = Shape::from(to);
-        let mut projection = Projection::new(self.shape(), &to)?;
+        let projection = Projection::new_unchecked(self.shape().clone(), to.clone());
         let mut projected = Scs::from_zeros::<Shape>(to);
 
-        for (&weight, count) in self.array.iter().zip(self.array.iter_indices()) {
-            projection.project_to_weighted(&count, &mut projected, weight)?;
+        for (&weight, from) in self.array.iter().zip(self.array.iter_indices()) {
+            projected
+                .inner_mut()
+                .iter_mut()
+                .zip(projection.project_all_unchecked(&from))
+                .for_each(|(to, projected)| *to += projected * weight);
         }
 
         Ok(projected.into_state_unchecked())
