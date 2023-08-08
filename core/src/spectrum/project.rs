@@ -2,6 +2,8 @@ use std::fmt;
 
 use crate::array::Shape;
 
+use super::Scs;
+
 mod hypergeometric;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -57,11 +59,11 @@ impl Projection {
         }
     }
 
-    pub fn project_all_unchecked<'a>(&'a self, from: &'a [usize]) -> ProjectIter<'a> {
-        ProjectIter::new_unchecked(self, from)
+    pub fn project_unchecked<'a>(&'a self, from: &'a [usize]) -> Projected<'a> {
+        Projected::new_unchecked(self, from)
     }
 
-    fn project_unchecked(&self, from: &[usize], to: &[usize]) -> f64 {
+    fn project_value_unchecked(&self, from: &[usize], to: &[usize]) -> f64 {
         self.from
             .iter()
             .map(|x| x - 1)
@@ -81,7 +83,34 @@ impl Projection {
 }
 
 #[derive(Debug)]
-pub struct ProjectIter<'a> {
+pub struct Projected<'a> {
+    iter: ProjectIter<'a>,
+    weight: f64,
+}
+
+impl<'a> Projected<'a> {
+    pub fn add_unchecked(self, to: &mut Scs) {
+        to.inner_mut()
+            .iter_mut()
+            .zip(self.iter)
+            .for_each(|(to, projected)| *to += projected * self.weight);
+    }
+
+    fn new_unchecked(projection: &'a Projection, from: &'a [usize]) -> Self {
+        Self {
+            iter: ProjectIter::new_unchecked(projection, from),
+            weight: 1.0,
+        }
+    }
+
+    pub fn into_weighted(mut self, weight: f64) -> Self {
+        self.weight = weight;
+        self
+    }
+}
+
+#[derive(Debug)]
+struct ProjectIter<'a> {
     projection: &'a Projection,
     from: &'a [usize],
     to: Vec<usize>,
@@ -96,13 +125,13 @@ impl<'a> ProjectIter<'a> {
     fn impl_next_rec(&mut self, axis: usize) -> Option<<Self as Iterator>::Item> {
         if self.index == 0 {
             self.index += 1;
-            return Some(self.project());
+            return Some(self.project_value());
         };
 
         self.to[axis] += 1;
         if self.to[axis] < self.projection.to[axis] {
             self.index += 1;
-            Some(self.project())
+            Some(self.project_value())
         } else if axis > 0 {
             self.to[axis] = 0;
             self.impl_next_rec(axis - 1)
@@ -120,8 +149,8 @@ impl<'a> ProjectIter<'a> {
         }
     }
 
-    fn project(&self) -> f64 {
-        self.projection.project_unchecked(self.from, &self.to)
+    fn project_value(&self) -> f64 {
+        self.projection.project_value_unchecked(self.from, &self.to)
     }
 }
 
@@ -195,7 +224,7 @@ mod tests {
         let projection = Projection::new_unchecked(Shape::from(7), Shape::from(3));
 
         assert_approx_eq!(
-            projection.project_all_unchecked(&[2]).collect::<Vec<_>>(),
+            ProjectIter::new_unchecked(&projection, &[2]).collect::<Vec<_>>(),
             vec![0.4, 0.533333, 0.066667],
             epsilon = 1e-6
         );
@@ -208,7 +237,7 @@ mod tests {
         macro_rules! assert_project_to {
             ($projection:ident from [$($from:literal),+] is [$($expected:literal),+]) => {
                 assert_approx_eq!(
-                    $projection.project_all_unchecked(&[$($from),+]).collect::<Vec<_>>(),
+                    ProjectIter::new_unchecked(&$projection, &[$($from),+]).collect::<Vec<_>>(),
                     vec![$($expected),+],
                     epsilon = 1e-6
                 );

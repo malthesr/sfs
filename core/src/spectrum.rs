@@ -146,17 +146,16 @@ impl<S: State> Spectrum<S> {
     {
         let to = to.into();
         let projection = Projection::new(self.shape().clone(), to.clone())?;
-        let mut projected = Scs::from_zeros(to);
+        let mut new = Scs::from_zeros(to);
 
         for (&weight, from) in self.array.iter().zip(self.array.iter_indices()) {
-            projected
-                .inner_mut()
-                .iter_mut()
-                .zip(projection.project_all_unchecked(&from))
-                .for_each(|(to, projected)| *to += projected * weight);
+            projection
+                .project_unchecked(&from)
+                .into_weighted(weight)
+                .add_unchecked(&mut new);
         }
 
-        Ok(projected.into_state_unchecked())
+        Ok(new.into_state_unchecked())
     }
 
     pub fn normalize(&mut self) {
