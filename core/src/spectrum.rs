@@ -1,8 +1,11 @@
 use std::{
     fmt,
     marker::PhantomData,
-    ops::{Index, IndexMut, Range},
+    ops::{AddAssign, Index, IndexMut, Range},
 };
+
+mod count;
+pub use count::Count;
 
 pub mod io;
 
@@ -214,6 +217,12 @@ impl<S: State> fmt::Debug for Spectrum<S> {
         f.debug_struct(S::debug_name())
             .field("array", &self.array)
             .finish()
+    }
+}
+
+impl AddAssign<&Count> for Scs {
+    fn add_assign(&mut self, count: &Count) {
+        self[count] += 1.0;
     }
 }
 
