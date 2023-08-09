@@ -43,6 +43,12 @@ where
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PopulationId(pub usize);
 
+impl From<PopulationId> for usize {
+    fn from(id: PopulationId) -> Self {
+        id.0
+    }
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SampleMap(IndexMap<Sample, PopulationId>);
 
