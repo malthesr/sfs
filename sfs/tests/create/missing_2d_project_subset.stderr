@@ -1,5 +1,3 @@
 [sfs trace] Skipping sample 'sample0' at site 'chr1:1'. Reason: 'missing'.
-[sfs trace] Skipping sample 'sample3' at site 'chr1:2'. Reason: 'missing'.
 [sfs trace] Skipping sample 'sample4' at site 'chr1:2'. Reason: 'missing'.
 [sfs trace] Skipping sample 'sample2' at site 'chr1:3'. Reason: 'missing'.
-[sfs trace] Skipping sample 'sample3' at site 'chr1:4'. Reason: 'missing'.

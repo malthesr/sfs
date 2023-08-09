@@ -13,7 +13,7 @@ pub struct Runner {
 }
 
 impl Runner {
-    fn handle_skipped(&mut self) -> Result<(), Error> {
+    fn handle_skipped_site(&mut self) -> Result<(), Error> {
         let contig = self.reader.current_contig();
         let position = self.reader.current_position();
 
@@ -27,25 +27,34 @@ impl Runner {
             if self.skipped == 0 {
                 log::info!(
                     "Skipping site '{contig}:{position}' due to too many missing and/or \
-                    multiallelic genotypes. This message will be shown only once, with a summary \
-                    at the end. Increase verbosity for more information."
+                    multiallelic genotypes. By default, this message will be shown only once, \
+                    with a summary at the end. Increase verbosity for more information."
+                );
+            } else {
+                log::debug!(
+                    "Skipping site '{contig}:{position}' \
+                    due to too many missing and/or multiallelic genotypes."
                 );
             }
 
             self.skipped += 1;
         }
+        Ok(())
+    }
+
+    fn handle_skipped_samples(&self) {
+        let contig = self.reader.current_contig();
+        let position = self.reader.current_position();
 
         for (sample, reason) in self
             .reader
             .current_skipped_samples()
             .map(|(sample, skipped_genotype)| (sample.as_ref(), skipped_genotype.reason()))
         {
-            log::debug!(
+            log::trace!(
                 "Skipping sample '{sample}' at site '{contig}:{position}'. Reason: '{reason}'.",
             )
         }
-
-        Ok(())
     }
 
     pub fn new(reader: Reader, strict: bool) -> Result<Self, Error> {
@@ -69,11 +78,19 @@ impl Runner {
                     projected.add_unchecked(&mut scs);
                 }
                 ReadStatus::Read(Site::InsufficientData) => {
-                    self.handle_skipped()?;
+                    self.handle_skipped_site()?;
                 }
-                ReadStatus::Error(e) => return Err(e.into()),
+                ReadStatus::Error(e) => {
+                    return Err(anyhow!(
+                        "encountered genotype error at site '{}:{}': {e}",
+                        self.reader.current_contig(),
+                        self.reader.current_position()
+                    ))
+                }
                 ReadStatus::Done => break,
             }
+
+            self.handle_skipped_samples();
 
             self.sites += 1;
         }

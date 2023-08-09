@@ -143,16 +143,13 @@ impl<S: State> Spectrum<S> {
         spectrum
     }
 
-    pub fn project<T>(&self, to: T) -> Result<Self, ProjectionError>
+    pub fn project<T>(&self, project_to: T) -> Result<Self, ProjectionError>
     where
         T: Into<Shape>,
     {
-        let to = to.into();
-        let mut projection = Projection::new(
-            Count::from_shape(self.shape().clone()),
-            Count::from_shape(to.clone()),
-        )?;
-        let mut new = Scs::from_zeros(to);
+        let project_to = project_to.into();
+        let mut projection = Projection::from_shapes(self.shape().clone(), project_to.clone())?;
+        let mut new = Scs::from_zeros(project_to);
 
         for (&weight, from) in self.array.iter().zip(self.array.iter_indices().map(Count)) {
             projection
@@ -387,6 +384,32 @@ mod tests {
         let projected = scs.project(3).unwrap();
         let expected = Scs::new([2.333333, 7.0, 11.666667], 3).unwrap();
         assert_approx_eq!(projected, expected, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_project_7_to_7_is_identity() {
+        let scs = Scs::from_range(0..7, 7).unwrap();
+        let projected = scs.project(7).unwrap();
+        assert_eq!(scs, projected);
+    }
+
+    #[test]
+    fn test_project_7_to_8_is_error() {
+        let scs = Scs::from_range(0..7, 7).unwrap();
+        let result = scs.project(8);
+
+        assert!(matches!(
+            result,
+            Err(ProjectionError::InvalidProjection { .. })
+        ));
+    }
+
+    #[test]
+    fn test_project_7_to_0_is_error() {
+        let scs = Scs::from_range(0..7, 7).unwrap();
+        let result = scs.project(0);
+
+        assert!(matches!(result, Err(ProjectionError::Zero)));
     }
 
     #[test]

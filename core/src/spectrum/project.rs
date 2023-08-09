@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::array::Shape;
+
 use super::{Count, Scs};
 
 mod hypergeometric;
@@ -15,7 +17,16 @@ impl PartialProjection {
         self.project_to.dimensions()
     }
 
-    pub fn new_unchecked<C>(project_to: C) -> Self
+    pub fn from_shape<S>(project_to: S) -> Result<Self, ProjectionError>
+    where
+        S: Into<Shape>,
+    {
+        Count::try_from_shape(project_to.into())
+            .ok_or(ProjectionError::Zero)
+            .map(Self::new)
+    }
+
+    pub fn new<C>(project_to: C) -> Self
     where
         C: Into<Count>,
     {
@@ -53,12 +64,25 @@ impl Projection {
         self.inner.dimensions()
     }
 
-    pub fn new<C>(from: C, to: C) -> Result<Self, ProjectionError>
+    pub fn from_shapes<S>(project_from: S, project_to: S) -> Result<Self, ProjectionError>
+    where
+        S: Into<Shape>,
+    {
+        match (
+            Count::try_from_shape(project_from.into()),
+            Count::try_from_shape(project_to.into()),
+        ) {
+            (Some(project_from), Some(project_to)) => Self::new(project_from, project_to),
+            (None, None) | (None, Some(_)) | (Some(_), None) => Err(ProjectionError::Zero),
+        }
+    }
+
+    pub fn new<C>(project_from: C, project_to: C) -> Result<Self, ProjectionError>
     where
         C: Into<Count>,
     {
-        let from = from.into();
-        let to = to.into();
+        let from = project_from.into();
+        let to = project_to.into();
 
         if from.dimensions() == to.dimensions() {
             if let Some(dimension) = from
@@ -91,7 +115,7 @@ impl Projection {
     {
         Self {
             project_from: project_from.into(),
-            inner: PartialProjection::new_unchecked(project_to),
+            inner: PartialProjection::new(project_to),
         }
     }
 
@@ -221,6 +245,7 @@ pub enum ProjectionError {
         from: usize,
         to: usize,
     },
+    Zero,
 }
 
 impl fmt::Display for ProjectionError {
@@ -243,6 +268,7 @@ impl fmt::Display for ProjectionError {
                     "cannot project from one number of dimensions ({from}) to another ({to})"
                 )
             }
+            ProjectionError::Zero => f.write_str("cannot project to or from shape zero"),
         }
     }
 }
@@ -303,36 +329,35 @@ mod tests {
         ))
     }
 
-    #[test]
-    fn test_project_7_to_3_project_2() {
-        let mut projection = Projection::new_unchecked(Count::from(6), Count::from(2));
-
-        assert_approx_eq!(
-            projection
-                .project_unchecked(&Count::from(2))
-                .iter
-                .collect::<Vec<_>>(),
-            vec![0.4, 0.533333, 0.066667],
-            epsilon = 1e-6
-        );
+    macro_rules! assert_project_to {
+        ($projection:ident from [$($from:literal),+] is [$($expected:literal),+]) => {
+            assert_approx_eq!(
+                $projection
+                    .project_unchecked(&Count::from([$($from),+]))
+                    .iter
+                    .collect::<Vec<_>>(),
+                vec![$($expected),+],
+                epsilon = 1e-6
+            );
+        };
     }
 
     #[test]
-    fn test_project_3x3_to_2x2() {
-        let mut projection = Projection::new_unchecked(Count::from([2, 2]), Count::from([1, 1]));
+    fn test_project_6_to_2() {
+        let mut projection = Projection::new_unchecked(Count::from(6), Count::from(2));
 
-        macro_rules! assert_project_to {
-            ($projection:ident from [$($from:literal),+] is [$($expected:literal),+]) => {
-                assert_approx_eq!(
-                    $projection
-                        .project_unchecked(&Count::from([$($from),+]))
-                        .iter
-                        .collect::<Vec<_>>(),
-                    vec![$($expected),+],
-                    epsilon = 1e-6
-                );
-            };
-        }
+        assert_project_to!(projection from [0] is [1.000000, 0.000000, 0.000000]);
+        assert_project_to!(projection from [1] is [0.666666, 0.333333, 0.000000]);
+        assert_project_to!(projection from [2] is [0.400000, 0.533333, 0.066667]);
+        assert_project_to!(projection from [3] is [0.200000, 0.600000, 0.200000]);
+        assert_project_to!(projection from [4] is [0.066667, 0.533333, 0.400000]);
+        assert_project_to!(projection from [5] is [0.000000, 0.333333, 0.666666]);
+        assert_project_to!(projection from [6] is [0.000000, 0.000000, 1.000000]);
+    }
+
+    #[test]
+    fn test_project_2x2_to_1x1() {
+        let mut projection = Projection::new_unchecked(Count::from([2, 2]), Count::from([1, 1]));
 
         assert_project_to!(projection from [0, 0] is [1.00, 0.00, 0.00, 0.00]);
         assert_project_to!(projection from [0, 1] is [0.50, 0.50, 0.00, 0.00]);

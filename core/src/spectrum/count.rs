@@ -10,6 +10,14 @@ impl Count {
         self.0.len()
     }
 
+    pub fn try_from_shape(shape: Shape) -> Option<Self> {
+        let mut vec = shape.0;
+        for x in vec.iter_mut() {
+            *x = x.checked_sub(1)?;
+        }
+        Some(Self(vec))
+    }
+
     pub fn from_shape(shape: Shape) -> Self {
         let mut vec = shape.0;
         vec.iter_mut().for_each(|x| *x -= 1);

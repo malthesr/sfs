@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     array::Shape,
-    spectrum::{project::PartialProjection, Count},
+    spectrum::project::{PartialProjection, ProjectionError},
 };
 
 use super::{bcf::Reader as BcfReader, sample_map::Population, GenotypeReader, Reader, SampleMap};
@@ -16,7 +16,7 @@ use super::{bcf::Reader as BcfReader, sample_map::Population, GenotypeReader, Re
 pub struct Builder {
     format: Option<Format>,
     sample_map: Option<SampleMap>,
-    projection: Option<PartialProjection>,
+    project_to: Option<Shape>,
     threads: NonZeroUsize,
 }
 
@@ -43,7 +43,34 @@ impl Builder {
             });
         }
 
-        Ok(Reader::new_unchecked(reader, sample_map, self.projection))
+        let projection = self
+            .project_to
+            .map(|project_to| {
+                let project_from = sample_map.shape();
+
+                if project_from.dimensions() != project_to.dimensions() {
+                    Err(ProjectionError::UnequalDimensions {
+                        from: project_from.dimensions(),
+                        to: project_to.dimensions(),
+                    })
+                } else if let Some((dimension, (&from, &to))) = project_from
+                    .iter()
+                    .zip(project_to.iter())
+                    .enumerate()
+                    .find(|(_, (from, to))| from < to)
+                {
+                    Err(ProjectionError::InvalidProjection {
+                        dimension,
+                        from,
+                        to,
+                    })
+                } else {
+                    PartialProjection::from_shape(project_to)
+                }
+            })
+            .transpose()?;
+
+        Ok(Reader::new_unchecked(reader, sample_map, projection))
     }
 
     pub fn build_from_path<P>(self, path: P) -> Result<Reader, BuilderError>
@@ -84,8 +111,8 @@ impl Builder {
         self
     }
 
-    pub fn set_projection(mut self, to: Shape) -> Self {
-        self.projection = Some(PartialProjection::new_unchecked(Count::from_shape(to)));
+    pub fn set_projection(mut self, project_to: Shape) -> Self {
+        self.project_to = Some(project_to);
         self
     }
 
@@ -126,7 +153,7 @@ impl Default for Builder {
             format: None,
             sample_map: None,
             threads: NonZeroUsize::new(1).unwrap(),
-            projection: None,
+            project_to: None,
         }
     }
 }
@@ -141,12 +168,19 @@ pub enum BuilderError {
     EmptySamplesMap,
     Io(io::Error),
     PathDoesNotExist { path: PathBuf },
+    Projection(ProjectionError),
     UnknownSample { sample: String },
 }
 
 impl From<io::Error> for BuilderError {
     fn from(e: io::Error) -> Self {
         Self::Io(e)
+    }
+}
+
+impl From<ProjectionError> for BuilderError {
+    fn from(e: ProjectionError) -> Self {
+        Self::Projection(e)
     }
 }
 
@@ -159,6 +193,7 @@ impl fmt::Display for BuilderError {
                 write!(f, "path '{}' not found", path.display())
             }
             BuilderError::UnknownSample { sample } => write!(f, "unknown sample {sample}"),
+            BuilderError::Projection(e) => write!(f, "{e}"),
         }
     }
 }

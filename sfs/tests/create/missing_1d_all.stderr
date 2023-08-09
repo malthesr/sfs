@@ -1,7 +1,5 @@
-[sfs  info] Skipping site 'chr1:1' due to too many missing and/or multiallelic genotypes. This message will be shown only once, with a summary at the end. Increase verbosity for more information.
-[sfs debug] Skipping sample 'sample0' at site 'chr1:1'. Reason: 'missing'.
-[sfs debug] Skipping sample 'sample3' at site 'chr1:2'. Reason: 'missing'.
-[sfs debug] Skipping sample 'sample4' at site 'chr1:2'. Reason: 'missing'.
-[sfs debug] Skipping sample 'sample2' at site 'chr1:3'. Reason: 'missing'.
-[sfs debug] Skipping sample 'sample3' at site 'chr1:4'. Reason: 'missing'.
+[sfs  info] Skipping site 'chr1:1' due to too many missing and/or multiallelic genotypes. By default, this message will be shown only once, with a summary at the end. Increase verbosity for more information.
+[sfs debug] Skipping site 'chr1:2' due to too many missing and/or multiallelic genotypes.
+[sfs debug] Skipping site 'chr1:3' due to too many missing and/or multiallelic genotypes.
+[sfs debug] Skipping site 'chr1:4' due to too many missing and/or multiallelic genotypes.
 [sfs  info] Skipped 4/5 sites due to missing and/or multiallelic genotypes. Project data (or relax projection) as necessary to keep more sites.
