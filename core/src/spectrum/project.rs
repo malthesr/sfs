@@ -7,6 +7,7 @@ mod hypergeometric;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PartialProjection {
     project_to: Count,
+    to_buf: Count,
 }
 
 impl PartialProjection {
@@ -18,8 +19,11 @@ impl PartialProjection {
     where
         C: Into<Count>,
     {
+        let project_to = project_to.into();
+
         Self {
-            project_to: project_to.into(),
+            to_buf: Count::from_zeros(project_to.dimensions()),
+            project_to,
         }
     }
 
@@ -32,7 +36,9 @@ impl PartialProjection {
         project_from: &'a Count,
         from: &'a Count,
     ) -> Projected<'a> {
-        Projected::new_unchecked(project_from, &self.project_to, from)
+        self.to_buf.set_zero();
+
+        Projected::new_unchecked(project_from, &self.project_to, from, &mut self.to_buf)
     }
 }
 
@@ -112,9 +118,14 @@ impl<'a> Projected<'a> {
             .for_each(|(to, projected)| *to += projected * self.weight);
     }
 
-    fn new_unchecked(project_from: &'a Count, project_to: &'a Count, from: &'a Count) -> Self {
+    fn new_unchecked(
+        project_from: &'a Count,
+        project_to: &'a Count,
+        from: &'a Count,
+        to: &'a mut Count,
+    ) -> Self {
         Self {
-            iter: ProjectIter::new_unchecked(project_from, project_to, from),
+            iter: ProjectIter::new_unchecked(project_from, project_to, from, to),
             weight: 1.0,
         }
     }
@@ -130,7 +141,7 @@ struct ProjectIter<'a> {
     project_from: &'a Count,
     project_to: &'a Count,
     from: &'a Count,
-    to: Count,
+    to: &'a mut Count,
     index: usize,
 }
 
@@ -157,12 +168,17 @@ impl<'a> ProjectIter<'a> {
         }
     }
 
-    fn new_unchecked(project_from: &'a Count, project_to: &'a Count, from: &'a Count) -> Self {
+    fn new_unchecked(
+        project_from: &'a Count,
+        project_to: &'a Count,
+        from: &'a Count,
+        to: &'a mut Count,
+    ) -> Self {
         Self {
             project_from,
             project_to,
             from,
-            to: Count::from_zeros(from.len()),
+            to,
             index: 0,
         }
     }
@@ -289,15 +305,13 @@ mod tests {
 
     #[test]
     fn test_project_7_to_3_project_2() {
-        let projection = Projection::new_unchecked(Count::from(6), Count::from(2));
+        let mut projection = Projection::new_unchecked(Count::from(6), Count::from(2));
 
         assert_approx_eq!(
-            ProjectIter::new_unchecked(
-                &projection.project_from,
-                &projection.inner.project_to,
-                &Count::from(2)
-            )
-            .collect::<Vec<_>>(),
+            projection
+                .project_unchecked(&Count::from(2))
+                .iter
+                .collect::<Vec<_>>(),
             vec![0.4, 0.533333, 0.066667],
             epsilon = 1e-6
         );
@@ -305,12 +319,15 @@ mod tests {
 
     #[test]
     fn test_project_3x3_to_2x2() {
-        let projection = Projection::new_unchecked(Count::from([2, 2]), Count::from([1, 1]));
+        let mut projection = Projection::new_unchecked(Count::from([2, 2]), Count::from([1, 1]));
 
         macro_rules! assert_project_to {
             ($projection:ident from [$($from:literal),+] is [$($expected:literal),+]) => {
                 assert_approx_eq!(
-                    ProjectIter::new_unchecked(&$projection.project_from, &$projection.inner.project_to, &Count::from([$($from),+])).collect::<Vec<_>>(),
+                    $projection
+                        .project_unchecked(&Count::from([$($from),+]))
+                        .iter
+                        .collect::<Vec<_>>(),
                     vec![$($expected),+],
                     epsilon = 1e-6
                 );
