@@ -148,10 +148,13 @@ impl<S: State> Spectrum<S> {
         T: Into<Shape>,
     {
         let to = to.into();
-        let projection = Projection::new(self.shape().clone(), to.clone())?;
+        let projection = Projection::new(
+            Count::from_shape(self.shape().clone()),
+            Count::from_shape(to.clone()),
+        )?;
         let mut new = Scs::from_zeros(to);
 
-        for (&weight, from) in self.array.iter().zip(self.array.iter_indices()) {
+        for (&weight, from) in self.array.iter().zip(self.array.iter_indices().map(Count)) {
             projection
                 .project_unchecked(&from)
                 .into_weighted(weight)

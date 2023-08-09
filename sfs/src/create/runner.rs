@@ -58,7 +58,7 @@ impl Runner {
     }
 
     pub fn run(&mut self) -> Result<Scs, Error> {
-        let mut scs = Scs::from_zeros(self.reader.shape());
+        let mut scs = self.reader.create_zero_scs();
 
         loop {
             match self.reader.read_site() {

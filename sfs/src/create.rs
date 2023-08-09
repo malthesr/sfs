@@ -18,7 +18,9 @@ pub struct Create {
     input: Option<PathBuf>,
 
     /// Output SFS precision.
-    #[arg(long, default_value_t = 0, value_name = "INT")]
+    ///
+    /// This option is only used when projecting, otherwise the output precision is 0.
+    #[arg(long, default_value_t = 6, value_name = "INT")]
     precision: usize,
 
     /// Sample subset to use.
@@ -54,7 +56,7 @@ pub struct Create {
     /// SFS. For example, `--project 7,5` would project a two-dimensional SFS down to three diploid
     /// individuals in the first dimension and two in the second.
     #[clap(short = 'p', long, use_value_delimiter = true, value_name = "INT,...")]
-    pub projection: Option<Vec<usize>>,
+    pub project: Option<Vec<usize>>,
 
     /// Promote warnings to errors.
     ///
@@ -87,7 +89,9 @@ impl Create {
             builder
         };
 
-        if let Some(projection) = self.projection {
+        let precision = self.project.as_ref().map(|_| self.precision).unwrap_or(0);
+
+        if let Some(projection) = self.project {
             builder = builder.set_projection(projection.into());
         };
 
@@ -96,7 +100,6 @@ impl Create {
         let mut runner = Runner::new(reader, self.strict)?;
         let sfs = runner.run()?;
 
-        let precision = self.precision;
         sfs_core::spectrum::io::text::write_spectrum(&mut io::stdout(), &sfs, precision)?;
 
         Ok(())
@@ -137,6 +140,6 @@ mod tests {
     fn test_projection() {
         let args = parse_subcmd::<Create>("sfs create -p 6,3,9 input.bcf");
 
-        assert_eq!(args.projection, Some(vec![6, 3, 9]));
+        assert_eq!(args.project, Some(vec![6, 3, 9]));
     }
 }

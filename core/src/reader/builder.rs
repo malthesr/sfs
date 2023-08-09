@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     array::Shape,
-    spectrum::project::{Projection, ProjectionError},
+    spectrum::{project::PartialProjection, Count},
 };
 
 use super::{bcf::Reader as BcfReader, sample_map::Population, GenotypeReader, Reader, SampleMap};
@@ -16,7 +16,7 @@ use super::{bcf::Reader as BcfReader, sample_map::Population, GenotypeReader, Re
 pub struct Builder {
     format: Option<Format>,
     sample_map: Option<SampleMap>,
-    projection: Option<Shape>,
+    projection: Option<PartialProjection>,
     threads: NonZeroUsize,
 }
 
@@ -43,15 +43,7 @@ impl Builder {
             });
         }
 
-        let projection = self
-            .projection
-            .map(|to| {
-                let from = sample_map.shape();
-                Projection::new(from, to)
-            })
-            .transpose()?;
-
-        Ok(Reader::new_unchecked(reader, sample_map, projection))
+        Ok(Reader::new_unchecked(reader, sample_map, self.projection))
     }
 
     pub fn build_from_path<P>(self, path: P) -> Result<Reader, BuilderError>
@@ -93,7 +85,7 @@ impl Builder {
     }
 
     pub fn set_projection(mut self, to: Shape) -> Self {
-        self.projection = Some(to);
+        self.projection = Some(PartialProjection::new_unchecked(Count::from_shape(to)));
         self
     }
 
@@ -149,19 +141,12 @@ pub enum BuilderError {
     EmptySamplesMap,
     Io(io::Error),
     PathDoesNotExist { path: PathBuf },
-    ProjectionError(ProjectionError),
     UnknownSample { sample: String },
 }
 
 impl From<io::Error> for BuilderError {
     fn from(e: io::Error) -> Self {
         Self::Io(e)
-    }
-}
-
-impl From<ProjectionError> for BuilderError {
-    fn from(e: ProjectionError) -> Self {
-        Self::ProjectionError(e)
     }
 }
 
@@ -173,7 +158,6 @@ impl fmt::Display for BuilderError {
             BuilderError::PathDoesNotExist { path } => {
                 write!(f, "path '{}' not found", path.display())
             }
-            BuilderError::ProjectionError(e) => write!(f, "{e}"),
             BuilderError::UnknownSample { sample } => write!(f, "unknown sample {sample}"),
         }
     }

@@ -1,25 +1,53 @@
 use std::fmt;
 
-use crate::array::Shape;
-
-use super::Scs;
+use super::{Count, Scs};
 
 mod hypergeometric;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PartialProjection {
+    to: Count,
+}
+
+impl PartialProjection {
+    pub fn dimensions(&self) -> usize {
+        self.to.dimensions()
+    }
+
+    pub fn new_unchecked<C>(to: C) -> Self
+    where
+        C: Into<Count>,
+    {
+        Self { to: to.into() }
+    }
+
+    pub fn project_unchecked<'a>(
+        &'a self,
+        project_from: &'a Count,
+        from: &'a Count,
+    ) -> Projected<'a> {
+        Projected::new_unchecked(project_from, &self.to, from)
+    }
+
+    pub fn to_count(&self) -> &Count {
+        &self.to
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Projection {
-    from: Shape,
-    to: Shape,
+    from: Count,
+    to: Count,
 }
 
 impl Projection {
     pub fn dimensions(&self) -> usize {
-        self.from.dimensions()
+        self.to.dimensions()
     }
 
-    pub fn new<S>(from: S, to: S) -> Result<Self, ProjectionError>
+    pub fn new<C>(from: C, to: C) -> Result<Self, ProjectionError>
     where
-        S: Into<Shape>,
+        C: Into<Count>,
     {
         let from = from.into();
         let to = to.into();
@@ -49,9 +77,9 @@ impl Projection {
         }
     }
 
-    pub fn new_unchecked<S>(from: S, to: S) -> Self
+    pub fn new_unchecked<C>(from: C, to: C) -> Self
     where
-        S: Into<Shape>,
+        C: Into<Count>,
     {
         Self {
             from: from.into(),
@@ -59,51 +87,12 @@ impl Projection {
         }
     }
 
-    pub fn project<'a>(&'a self, from: &'a [usize]) -> Result<Projected<'a>, ProjectError> {
-        if self.dimensions() == from.len() {
-            if let Some(dimension) = self
-                .to
-                .iter()
-                .zip(from.iter())
-                .enumerate()
-                .find_map(|(i, (&shape, &count))| (shape - 1 < count).then_some(i))
-            {
-                Err(ProjectError::InvalidProjection {
-                    dimension,
-                    from: from[dimension],
-                    to: self.to[dimension],
-                })
-            } else {
-                Ok(self.project_unchecked(from))
-            }
-        } else {
-            Err(ProjectError::UnequalDimensions {
-                from: from.len(),
-                to: self.dimensions(),
-            })
-        }
+    pub fn project_unchecked<'a>(&'a self, from: &'a Count) -> Projected<'a> {
+        Projected::new_unchecked(&self.from, &self.to, from)
     }
 
-    pub fn project_unchecked<'a>(&'a self, from: &'a [usize]) -> Projected<'a> {
-        Projected::new_unchecked(self, from)
-    }
-
-    fn project_value_unchecked(&self, from: &[usize], to: &[usize]) -> f64 {
-        self.from
-            .iter()
-            .map(|x| x - 1)
-            .zip(from.iter())
-            .zip(self.to.iter().map(|x| x - 1))
-            .zip(to.iter())
-            .map(|(((size, &successes), draws), &observed)| {
-                hypergeometric::pmf_unchecked(
-                    size as u64,
-                    successes as u64,
-                    draws as u64,
-                    observed as u64,
-                )
-            })
-            .fold(1.0, |joint, probability| joint * probability)
+    pub fn to_count(&self) -> &Count {
+        &self.to
     }
 }
 
@@ -121,9 +110,9 @@ impl<'a> Projected<'a> {
             .for_each(|(to, projected)| *to += projected * self.weight);
     }
 
-    fn new_unchecked(projection: &'a Projection, from: &'a [usize]) -> Self {
+    fn new_unchecked(project_from: &'a Count, project_to: &'a Count, from: &'a Count) -> Self {
         Self {
-            iter: ProjectIter::new_unchecked(projection, from),
+            iter: ProjectIter::new_unchecked(project_from, project_to, from),
             weight: 1.0,
         }
     }
@@ -136,9 +125,10 @@ impl<'a> Projected<'a> {
 
 #[derive(Debug)]
 struct ProjectIter<'a> {
-    projection: &'a Projection,
-    from: &'a [usize],
-    to: Vec<usize>,
+    project_from: &'a Count,
+    project_to: &'a Count,
+    from: &'a Count,
+    to: Count,
     index: usize,
 }
 
@@ -154,7 +144,7 @@ impl<'a> ProjectIter<'a> {
         };
 
         self.to[axis] += 1;
-        if self.to[axis] < self.projection.to[axis] {
+        if self.to[axis] <= self.project_to[axis] {
             self.index += 1;
             Some(self.project_value())
         } else if axis > 0 {
@@ -165,17 +155,31 @@ impl<'a> ProjectIter<'a> {
         }
     }
 
-    fn new_unchecked(projection: &'a Projection, from: &'a [usize]) -> Self {
+    fn new_unchecked(project_from: &'a Count, project_to: &'a Count, from: &'a Count) -> Self {
         Self {
-            projection,
+            project_from,
+            project_to,
             from,
-            to: vec![0; from.len()],
+            to: Count::from_zeros(from.len()),
             index: 0,
         }
     }
 
     fn project_value(&self) -> f64 {
-        self.projection.project_value_unchecked(self.from, &self.to)
+        self.project_from
+            .iter()
+            .zip(self.from.iter())
+            .zip(self.project_to.iter())
+            .zip(self.to.iter())
+            .map(|(((&size, &successes), &draws), &observed)| {
+                hypergeometric::pmf_unchecked(
+                    size as u64,
+                    successes as u64,
+                    draws as u64,
+                    observed as u64,
+                )
+            })
+            .fold(1.0, |joint, probability| joint * probability)
     }
 }
 
@@ -204,7 +208,7 @@ pub enum ProjectionError {
 impl fmt::Display for ProjectionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ProjectionError::Empty => f.write_str("cannot project empty shapes"),
+            ProjectionError::Empty => f.write_str("cannot project empty counts"),
             ProjectionError::InvalidProjection {
                 dimension,
                 from,
@@ -212,7 +216,7 @@ impl fmt::Display for ProjectionError {
             } => {
                 write!(
                     f,
-                    "cannot project from shape {from} to shape {to} in dimension {dimension}"
+                    "cannot project from count {from} to count {to} in dimension {dimension}"
                 )
             }
             ProjectionError::UnequalDimensions { from, to } => {
@@ -249,7 +253,7 @@ impl fmt::Display for ProjectError {
             } => {
                 write!(
                     f,
-                    "cannot project from shape {from} to shape {to} in dimension {dimension}"
+                    "cannot project from count {from} to count {to} in dimension {dimension}"
                 )
             }
             ProjectError::UnequalDimensions { from, to } => {
@@ -283,10 +287,11 @@ mod tests {
 
     #[test]
     fn test_project_7_to_3_project_2() {
-        let projection = Projection::new_unchecked(Shape::from(7), Shape::from(3));
+        let projection = Projection::new_unchecked(Count::from(6), Count::from(2));
 
         assert_approx_eq!(
-            ProjectIter::new_unchecked(&projection, &[2]).collect::<Vec<_>>(),
+            ProjectIter::new_unchecked(&projection.from, &projection.to, &Count::from(2))
+                .collect::<Vec<_>>(),
             vec![0.4, 0.533333, 0.066667],
             epsilon = 1e-6
         );
@@ -294,12 +299,12 @@ mod tests {
 
     #[test]
     fn test_project_3x3_to_2x2() {
-        let projection = Projection::new_unchecked(Shape::from([3, 3]), Shape::from([2, 2]));
+        let projection = Projection::new_unchecked(Count::from([2, 2]), Count::from([1, 1]));
 
         macro_rules! assert_project_to {
             ($projection:ident from [$($from:literal),+] is [$($expected:literal),+]) => {
                 assert_approx_eq!(
-                    ProjectIter::new_unchecked(&$projection, &[$($from),+]).collect::<Vec<_>>(),
+                    ProjectIter::new_unchecked(&$projection.from, &$projection.to, &Count::from([$($from),+])).collect::<Vec<_>>(),
                     vec![$($expected),+],
                     epsilon = 1e-6
                 );

@@ -13,10 +13,14 @@ pub use sample_map::SampleMap;
 pub mod bcf;
 
 use crate::{
-    array::Shape,
-    spectrum::project::{ProjectError, Projected, Projection},
+    spectrum::{
+        project::{PartialProjection, Projected},
+        Count,
+    },
+    Scs,
 };
 
+#[derive(Debug)]
 pub enum ReadStatus<T> {
     Read(T),
     Error(io::Error),
@@ -55,12 +59,23 @@ pub enum Site<'a> {
 pub struct Reader {
     reader: Box<dyn GenotypeReader>,
     sample_map: SampleMap,
-    counts: Vec<usize>,
-    projection: Option<Projection>,
+    counts: Count,
+    totals: Count,
+    projection: Option<PartialProjection>,
     skips: Vec<(usize, GenotypeSkipped)>,
 }
 
 impl Reader {
+    pub fn create_zero_scs(&self) -> Scs {
+        let shape = self
+            .projection
+            .clone()
+            .map(|proj| proj.to_count().clone().into_shape())
+            .unwrap_or_else(|| self.sample_map.shape().clone());
+
+        Scs::from_zeros(shape)
+    }
+
     pub fn current_contig(&self) -> &str {
         self.reader.current_contig()
     }
@@ -78,15 +93,16 @@ impl Reader {
     fn new_unchecked(
         reader: Box<dyn GenotypeReader>,
         sample_map: SampleMap,
-        projection: Option<Projection>,
+        projection: Option<PartialProjection>,
     ) -> Self {
-        let site = vec![0; sample_map.number_of_populations()];
+        let dimensions = sample_map.number_of_populations();
 
         Self {
             reader,
             sample_map,
             projection,
-            counts: site,
+            counts: Count::from_zeros(dimensions),
+            totals: Count::from_zeros(dimensions),
             skips: Vec::new(),
         }
     }
@@ -101,13 +117,14 @@ impl Reader {
         };
 
         for (sample, genotype) in self.reader.samples().iter().zip(genotypes) {
-            let Some(population_id) = self.sample_map.get(sample) else {
+            let Some(population_id) = self.sample_map.get(sample).map(usize::from) else {
                 continue
             };
 
             match genotype {
                 GenotypeResult::Genotype(genotype) => {
-                    self.counts[population_id.0] += genotype as u8 as usize;
+                    self.counts[population_id] += genotype as u8 as usize;
+                    self.totals[population_id] += 2;
                 }
                 GenotypeResult::Skipped(skip) => {
                     self.skips
@@ -120,10 +137,19 @@ impl Reader {
         }
 
         let site = if let Some(projection) = self.projection.as_ref() {
-            match projection.project(&self.counts) {
-                Ok(projected) => Site::Projected(projected),
-                Err(ProjectError::InvalidProjection { .. }) => Site::InsufficientData,
-                Err(ProjectError::UnequalDimensions { .. }) => unreachable!(),
+            let (exact, projectable) = self.totals.iter().zip(projection.to_count().iter()).fold(
+                (true, true),
+                |(exact, projectable), (&total, &to)| {
+                    (exact && total == to, projectable && total >= to)
+                },
+            );
+
+            if exact {
+                Site::Standard(&self.counts)
+            } else if projectable {
+                Site::Projected(projection.project_unchecked(&self.totals, &self.counts))
+            } else {
+                Site::InsufficientData
             }
         } else {
             if self.skips.is_empty() {
@@ -137,15 +163,12 @@ impl Reader {
     }
 
     fn reset(&mut self) {
-        self.counts.iter_mut().for_each(|x| *x = 0);
+        self.counts.set_zero();
+        self.totals.set_zero();
         self.skips.clear();
     }
 
     pub fn samples(&self) -> &[Sample] {
         self.reader.samples()
-    }
-
-    pub fn shape(&self) -> Shape {
-        self.sample_map.shape()
     }
 }
