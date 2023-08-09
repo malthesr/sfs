@@ -58,6 +58,21 @@ pub struct Create {
     #[clap(short = 'p', long, use_value_delimiter = true, value_name = "INT,...")]
     pub project: Option<Vec<usize>>,
 
+    /// Hypergeometric projection of the SFS in units of individuals.
+    ///
+    /// This is an alternative to `--project` that allows for specifying the projection in number
+    /// of diploid individuals. So `--project-individuals 3,2` would project a two-dimensional SFS
+    /// down to three individuals in the first dimension and two in the second. See `--project`
+    /// for more information.
+    #[clap(
+        short = 'P',
+        long,
+        use_value_delimiter = true,
+        conflicts_with = "project",
+        value_name = "INT,..."
+    )]
+    pub project_individuals: Option<Vec<usize>>,
+
     /// Promote warnings to errors.
     ///
     /// By default, missing and multiallelic genotypes will be skipped and logged. Using this flag
@@ -89,9 +104,19 @@ impl Create {
             builder
         };
 
-        let precision = self.project.as_ref().map(|_| self.precision).unwrap_or(0);
+        let projection = match (self.project, self.project_individuals) {
+            (None, None) => None,
+            (None, Some(individuals)) => {
+                let shape = individuals.into_iter().map(|i| 2 * i + 1).collect();
+                Some(shape)
+            }
+            (Some(shape), None) => Some(shape),
+            (Some(_), Some(_)) => unreachable!("checked by clap"),
+        };
 
-        if let Some(projection) = self.project {
+        let mut precision = 0;
+        if let Some(projection) = projection {
+            precision = self.precision;
             builder = builder.set_projection(projection.into());
         };
 
@@ -137,9 +162,16 @@ mod tests {
     }
 
     #[test]
-    fn test_projection() {
+    fn test_project() {
         let args = parse_subcmd::<Create>("sfs create -p 6,3,9 input.bcf");
 
         assert_eq!(args.project, Some(vec![6, 3, 9]));
+    }
+
+    #[test]
+    fn test_project_args_conflict() {
+        let result = try_parse_subcmd::<Create>("sfs create -p 5 -P 2 input.bcf");
+
+        assert_eq!(result.unwrap_err().kind(), ClapErrorKind::ArgumentConflict)
     }
 }
