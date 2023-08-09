@@ -148,7 +148,7 @@ impl<S: State> Spectrum<S> {
         T: Into<Shape>,
     {
         let to = to.into();
-        let projection = Projection::new(
+        let mut projection = Projection::new(
             Count::from_shape(self.shape().clone()),
             Count::from_shape(to.clone()),
         )?;

@@ -72,7 +72,7 @@ impl Reader {
         let shape = self
             .projection
             .clone()
-            .map(|proj| proj.to_count().clone().into_shape())
+            .map(|projection| projection.project_to().clone().into_shape())
             .unwrap_or_else(|| self.sample_map.shape().clone());
 
         Scs::from_zeros(shape)
@@ -138,8 +138,8 @@ impl Reader {
             }
         }
 
-        let site = if let Some(projection) = self.projection.as_ref() {
-            let (exact, projectable) = self.totals.iter().zip(projection.to_count().iter()).fold(
+        let site = if let Some(projection) = self.projection.as_mut() {
+            let (exact, projectable) = self.totals.iter().zip(projection.project_to().iter()).fold(
                 (true, true),
                 |(exact, projectable), (&total, &to)| {
                     (exact && total == to, projectable && total >= to)

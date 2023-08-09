@@ -6,43 +6,45 @@ mod hypergeometric;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PartialProjection {
-    to: Count,
+    project_to: Count,
 }
 
 impl PartialProjection {
     pub fn dimensions(&self) -> usize {
-        self.to.dimensions()
+        self.project_to.dimensions()
     }
 
-    pub fn new_unchecked<C>(to: C) -> Self
+    pub fn new_unchecked<C>(project_to: C) -> Self
     where
         C: Into<Count>,
     {
-        Self { to: to.into() }
+        Self {
+            project_to: project_to.into(),
+        }
+    }
+
+    pub fn project_to(&self) -> &Count {
+        &self.project_to
     }
 
     pub fn project_unchecked<'a>(
-        &'a self,
+        &'a mut self,
         project_from: &'a Count,
         from: &'a Count,
     ) -> Projected<'a> {
-        Projected::new_unchecked(project_from, &self.to, from)
-    }
-
-    pub fn to_count(&self) -> &Count {
-        &self.to
+        Projected::new_unchecked(project_from, &self.project_to, from)
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Projection {
-    from: Count,
-    to: Count,
+    project_from: Count,
+    inner: PartialProjection,
 }
 
 impl Projection {
     pub fn dimensions(&self) -> usize {
-        self.to.dimensions()
+        self.inner.dimensions()
     }
 
     pub fn new<C>(from: C, to: C) -> Result<Self, ProjectionError>
@@ -77,22 +79,22 @@ impl Projection {
         }
     }
 
-    pub fn new_unchecked<C>(from: C, to: C) -> Self
+    pub fn new_unchecked<C>(project_from: C, project_to: C) -> Self
     where
         C: Into<Count>,
     {
         Self {
-            from: from.into(),
-            to: to.into(),
+            project_from: project_from.into(),
+            inner: PartialProjection::new_unchecked(project_to),
         }
     }
 
-    pub fn project_unchecked<'a>(&'a self, from: &'a Count) -> Projected<'a> {
-        Projected::new_unchecked(&self.from, &self.to, from)
+    pub fn project_to(&self) -> &Count {
+        self.inner.project_to()
     }
 
-    pub fn to_count(&self) -> &Count {
-        &self.to
+    pub fn project_unchecked<'a>(&'a mut self, from: &'a Count) -> Projected<'a> {
+        self.inner.project_unchecked(&self.project_from, from)
     }
 }
 
@@ -290,8 +292,12 @@ mod tests {
         let projection = Projection::new_unchecked(Count::from(6), Count::from(2));
 
         assert_approx_eq!(
-            ProjectIter::new_unchecked(&projection.from, &projection.to, &Count::from(2))
-                .collect::<Vec<_>>(),
+            ProjectIter::new_unchecked(
+                &projection.project_from,
+                &projection.inner.project_to,
+                &Count::from(2)
+            )
+            .collect::<Vec<_>>(),
             vec![0.4, 0.533333, 0.066667],
             epsilon = 1e-6
         );
@@ -304,7 +310,7 @@ mod tests {
         macro_rules! assert_project_to {
             ($projection:ident from [$($from:literal),+] is [$($expected:literal),+]) => {
                 assert_approx_eq!(
-                    ProjectIter::new_unchecked(&$projection.from, &$projection.to, &Count::from([$($from),+])).collect::<Vec<_>>(),
+                    ProjectIter::new_unchecked(&$projection.project_from, &$projection.inner.project_to, &Count::from([$($from),+])).collect::<Vec<_>>(),
                     vec![$($expected),+],
                     epsilon = 1e-6
                 );
