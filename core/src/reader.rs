@@ -20,6 +20,8 @@ use crate::{
     Scs,
 };
 
+use self::sample_map::SampleId;
+
 #[derive(Debug)]
 pub enum ReadStatus<T> {
     Read(T),
@@ -62,7 +64,7 @@ pub struct Reader {
     counts: Count,
     totals: Count,
     projection: Option<PartialProjection>,
-    skips: Vec<(usize, GenotypeSkipped)>,
+    skipped_samples: Vec<(SampleId, GenotypeSkipped)>,
 }
 
 impl Reader {
@@ -84,10 +86,10 @@ impl Reader {
         self.reader.current_position()
     }
 
-    pub fn current_skips(&self) -> impl Iterator<Item = (&Sample, &GenotypeSkipped)> {
-        self.skips
+    pub fn current_skipped_samples(&self) -> impl Iterator<Item = (&Sample, &GenotypeSkipped)> {
+        self.skipped_samples
             .iter()
-            .map(|(i, skip)| (self.sample_map.by_index(*i).unwrap(), skip))
+            .map(|(i, s)| (self.sample_map.get_sample(*i).unwrap(), s))
     }
 
     fn new_unchecked(
@@ -103,7 +105,7 @@ impl Reader {
             projection,
             counts: Count::from_zeros(dimensions),
             totals: Count::from_zeros(dimensions),
-            skips: Vec::new(),
+            skipped_samples: Vec::new(),
         }
     }
 
@@ -117,7 +119,7 @@ impl Reader {
         };
 
         for (sample, genotype) in self.reader.samples().iter().zip(genotypes) {
-            let Some(population_id) = self.sample_map.get(sample).map(usize::from) else {
+            let Some(population_id) = self.sample_map.get_population_id(sample).map(usize::from) else {
                 continue
             };
 
@@ -127,8 +129,8 @@ impl Reader {
                     self.totals[population_id] += 2;
                 }
                 GenotypeResult::Skipped(skip) => {
-                    self.skips
-                        .push((self.sample_map.index_of(sample).unwrap(), skip));
+                    self.skipped_samples
+                        .push((self.sample_map.get_sample_id(sample).unwrap(), skip));
                 }
                 GenotypeResult::Error(e) => {
                     return ReadStatus::Error(io::Error::new(io::ErrorKind::InvalidData, e));
@@ -152,7 +154,7 @@ impl Reader {
                 Site::InsufficientData
             }
         } else {
-            if self.skips.is_empty() {
+            if self.skipped_samples.is_empty() {
                 Site::Standard(&self.counts)
             } else {
                 Site::InsufficientData
@@ -165,7 +167,7 @@ impl Reader {
     fn reset(&mut self) {
         self.counts.set_zero();
         self.totals.set_zero();
-        self.skips.clear();
+        self.skipped_samples.clear();
     }
 
     pub fn samples(&self) -> &[Sample] {

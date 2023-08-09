@@ -13,7 +13,7 @@ pub struct Runner {
 }
 
 impl Runner {
-    fn handle_skipped_site(&mut self) -> Result<(), Error> {
+    fn handle_skipped(&mut self) -> Result<(), Error> {
         let contig = self.reader.current_contig();
         let position = self.reader.current_position();
 
@@ -37,8 +37,8 @@ impl Runner {
 
         for (sample, reason) in self
             .reader
-            .current_skips()
-            .map(|(sample, skip)| (sample.as_ref(), skip.reason()))
+            .current_skipped_samples()
+            .map(|(sample, skipped_genotype)| (sample.as_ref(), skipped_genotype.reason()))
         {
             log::debug!(
                 "Skipping sample '{sample}' at site '{contig}:{position}'. Reason: '{reason}'.",
@@ -69,7 +69,7 @@ impl Runner {
                     projected.add_unchecked(&mut scs);
                 }
                 ReadStatus::Read(Site::InsufficientData) => {
-                    self.handle_skipped_site()?;
+                    self.handle_skipped()?;
                 }
                 ReadStatus::Error(e) => return Err(e.into()),
                 ReadStatus::Done => break,
@@ -78,12 +78,12 @@ impl Runner {
             self.sites += 1;
         }
 
-        self.summarize_skipped_sites();
+        self.summarize_skipped();
 
         Ok(scs)
     }
 
-    fn summarize_skipped_sites(&self) {
+    fn summarize_skipped(&self) {
         if self.skipped > 0 {
             log::info!(
                 "Skipped {skipped}/{total} sites due to missing and/or multiallelic genotypes. \

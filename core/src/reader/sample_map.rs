@@ -7,6 +7,9 @@ use crate::array::Shape;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Sample(pub String);
 
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct SampleId(pub usize);
+
 impl<S> From<S> for Sample
 where
     S: ToString,
@@ -53,10 +56,6 @@ impl From<PopulationId> for usize {
 pub struct SampleMap(IndexMap<Sample, PopulationId>);
 
 impl SampleMap {
-    pub fn by_index(&self, index: usize) -> Option<&Sample> {
-        self.0.get_index(index).map(|opt| opt.0)
-    }
-
     pub fn from_path<P>(path: P) -> io::Result<Self>
     where
         P: AsRef<Path>,
@@ -83,12 +82,16 @@ impl SampleMap {
             .collect()
     }
 
-    pub fn get(&self, sample: &Sample) -> Option<PopulationId> {
+    pub fn get_population_id(&self, sample: &Sample) -> Option<PopulationId> {
         self.0.get(sample).copied()
     }
 
-    pub fn index_of(&self, sample: &Sample) -> Option<usize> {
-        self.0.get_index_of(sample)
+    pub fn get_sample(&self, id: SampleId) -> Option<&Sample> {
+        self.0.get_index(id.0).map(|opt| opt.0)
+    }
+
+    pub fn get_sample_id(&self, sample: &Sample) -> Option<SampleId> {
+        self.0.get_index_of(sample).map(SampleId)
     }
 
     pub fn is_empty(&self) -> bool {
