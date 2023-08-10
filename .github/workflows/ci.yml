@@ -10,7 +10,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - name: Clippy check
       - run: cargo test
 
   clippy:
