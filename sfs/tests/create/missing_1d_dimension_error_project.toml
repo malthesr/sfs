@@ -1,6 +1,6 @@
 args = ["create",
   "-vv",
-  "-p",
+  "--project-shape",
   "5,3",
   "tests/create/missing.bcf"
 ]

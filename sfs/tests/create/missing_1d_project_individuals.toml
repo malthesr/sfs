@@ -1,1 +1,1 @@
-args = ["create", "-P", "3", "tests/create/missing.bcf"]
+args = ["create", "-p", "3", "tests/create/missing.bcf"]

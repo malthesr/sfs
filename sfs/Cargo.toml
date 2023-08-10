@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 atty = "0.2"
-clap = { version = "4.1", features = ["derive"] }
+clap = { version = "4.3", features = ["derive"] }
 env_logger = { version = "0.10", default-features = false }
 log = "0.4"
 sfs-core = { path = "../core" }

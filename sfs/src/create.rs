@@ -2,7 +2,7 @@ use std::{io, num::NonZeroUsize, path::PathBuf};
 
 use anyhow::Error;
 
-use clap::Parser;
+use clap::{Args, Parser};
 
 mod runner;
 use runner::Runner;
@@ -11,79 +11,101 @@ use sfs_core::reader;
 /// Create SFS from BCF.
 #[derive(Debug, Parser)]
 pub struct Create {
-    /// Input BCF file.
+    /// Input BCF.
     ///
     /// If no file is provided, stdin will be used.
     #[arg(value_name = "FILE")]
     input: Option<PathBuf>,
 
-    /// Output SFS precision.
+    /// Output precision.
     ///
-    /// This option is only used when projecting, otherwise the output precision is 0.
+    /// This option is only used when projecting, and otherwise set to zero since the output must be
+    /// integer counts.
     #[arg(long, default_value_t = 6, value_name = "INT")]
     precision: usize,
 
-    /// Sample subset to use.
+    #[command(flatten)]
+    project: Option<Project>,
+
+    #[command(flatten)]
+    samples: Option<Samples>,
+
+    /// Fail on missingness.
     ///
-    /// By default, a 1-dimensional SFS of all samples is created. By providing a sample subset, the
-    /// number of individuals considered can be restricted. Multiple, comma-separated values can be
-    /// provided. To construct a multi-dimensional SFS, the samples may be provided as a
-    /// comma-separated list of 'sample=group' pairs.
+    /// By default, any site with missing and/or multiallelic genotypes in the applied sample subset
+    /// are skipped and logged. Using this flag will cause an error if such genotypes are
+    /// encountered.
+    #[arg(long)]
+    strict: bool,
+
+    /// Number of threads.
+    ///
+    /// Multi-threading currently only affects BCF reading and parsing.
+    #[arg(short = 't', long, default_value_t = NonZeroUsize::new(4).unwrap(), value_name = "INT")]
+    threads: NonZeroUsize,
+}
+
+#[derive(Args, Debug, Eq, PartialEq)]
+#[group(required = false, multiple = false)]
+struct Samples {
+    /// Sample subset.
+    ///
+    /// By default, a one-dimensional SFS of all samples is created. Using this argument, the subset
+    /// of samples can be restricted. Multiple, comma-separated values may be provided. To construct
+    /// a multi-dimensional SFS, the samples may be provided as `sample=population` pairs.
+    /// The ordering of populations in the resulting SFS corresponds to the order of appearance of
+    /// input population names.
     #[arg(
         short = 's',
-        long,
+        long = "samples",
         use_value_delimiter = true,
         value_delimiter = ',',
         value_parser = parse_key_val,
         value_name = "SAMPLE[=GROUP],...")
     ]
-    samples: Option<Vec<(String, Option<String>)>>,
+    list: Option<Vec<(String, Option<String>)>>,
 
-    /// Samples file.
+    /// Sample subset file.
     ///
-    /// By default, a 1-dimensional SFS of all samples is created. By providing a samples file, the
-    /// number of individuals considered can be restricted. Each line should contain the name of a
-    /// single sample in the input file. To construct a multi-dimensional SFS, the file may
-    /// optionally contain a second, tab-delimited column contain group identifiers.
-    #[arg(short = 'S', long, conflicts_with = "samples", value_name = "FILE")]
-    samples_file: Option<PathBuf>,
+    /// Alternative to `--samples`, see documentation for background. Using this argument, the
+    /// sample subset can be provided as a file. Each line should contain the name of a sample.
+    /// Optionally, the file may contain a second, tab-delimited column with population identifiers.
+    #[arg(short = 'S', long = "samples-file", value_name = "FILE")]
+    file: Option<PathBuf>,
+}
 
-    /// Hypergeometric projection of the SFS.
+#[derive(Args, Debug, Eq, PartialEq)]
+#[group(required = false, multiple = false, conflicts_with = "strict")]
+struct Project {
+    /// Projected individuals.
     ///
-    /// By default, any site with missing and/or multiallelic genotypes are skipped. If this leads
-    /// to an unacceptable amount of skipped sites, the SFS can be projected to a lower shape, by
-    /// hypergeometric sampling. Use a comma-separated list of values giving the new shape of the
-    /// SFS. For example, `--project 7,5` would project a two-dimensional SFS down to three diploid
-    /// individuals in the first dimension and two in the second.
-    #[clap(short = 'p', long, use_value_delimiter = true, value_name = "INT,...")]
-    pub project: Option<Vec<usize>>,
-
-    /// Hypergeometric projection of the SFS in units of individuals.
-    ///
-    /// This is an alternative to `--project` that allows for specifying the projection in number
-    /// of diploid individuals. So `--project-individuals 3,2` would project a two-dimensional SFS
-    /// down to three individuals in the first dimension and two in the second. See `--project`
-    /// for more information.
+    /// By default, any site with missing and/or multiallelic genotypes in the applied sample subset
+    /// will be skipped. Where this leads to too much missingness, the SFS can be projected to a
+    /// lower number of individuals using hypergeometric sampling. By doing so, all sites with data
+    /// for at least as this required shape will be used, and those with more data will be projected
+    /// down. Use a comma-separated list of values giving the new shape of the SFS. For example,
+    /// `--project-individuals 3,2` would project a two-dimensional SFS down to three individuals
+    /// in the first dimension and two in the second.
     #[clap(
-        short = 'P',
-        long,
+        short = 'p',
+        long = "project-individuals",
         use_value_delimiter = true,
-        conflicts_with = "project",
         value_name = "INT,..."
     )]
-    pub project_individuals: Option<Vec<usize>>,
+    individuals: Option<Vec<usize>>,
 
-    /// Promote warnings to errors.
+    /// Projected shape.
     ///
-    /// By default, missing and multiallelic genotypes will be skipped and logged. Using this flag
-    /// will cause an error instead of a warning if such
-    /// genotypes are encountered.
-    #[arg(long)]
-    strict: bool,
-
-    /// Number of threads to use.
-    #[arg(short = 't', long, default_value_t = NonZeroUsize::new(4).unwrap(), value_name = "INT")]
-    threads: NonZeroUsize,
+    /// Alternative to `--project-individuals`, see documentation for background. Using this argument, the
+    /// projection can be specified by shape, rather than number of individuals. For example,
+    /// `--project-shape 7,5` would project a two-dimensional SFS down to three diploid individuals
+    /// in the first dimension and two in the second.
+    #[clap(
+        long = "project-shape",
+        use_value_delimiter = true,
+        value_name = "INT,..."
+    )]
+    shape: Option<Vec<usize>>,
 }
 
 fn parse_key_val(s: &str) -> Result<(String, Option<String>), clap::Error> {
@@ -96,29 +118,25 @@ impl Create {
     pub fn run(self) -> Result<(), Error> {
         let mut builder = reader::Builder::default().set_threads(self.threads);
 
-        builder = if let Some(samples_file) = self.samples_file {
-            builder.set_samples_file(samples_file)?
-        } else if let Some(samples) = self.samples {
-            builder.set_samples(samples)?
-        } else {
-            builder
-        };
-
-        let projection = match (self.project, self.project_individuals) {
-            (None, None) => None,
-            (None, Some(individuals)) => {
-                let shape = individuals.into_iter().map(|i| 2 * i + 1).collect();
-                Some(shape)
-            }
-            (Some(shape), None) => Some(shape),
-            (Some(_), Some(_)) => unreachable!("checked by clap"),
-        };
+        if let Some(samples) = self.samples {
+            builder = match (samples.list, samples.file) {
+                (Some(list), None) => builder.set_samples(list)?,
+                (None, Some(file)) => builder.set_samples_file(file)?,
+                _ => unreachable!("checked by clap"),
+            };
+        }
 
         let mut precision = 0;
-        if let Some(projection) = projection {
+
+        if let Some(project) = self.project {
             precision = self.precision;
-            builder = builder.set_projection(projection.into());
-        };
+
+            builder = match (project.individuals, project.shape) {
+                (Some(individuals), None) => builder.set_project_individuals(individuals),
+                (None, Some(shape)) => builder.set_project_shape(shape),
+                _ => unreachable!("checked by clap"),
+            };
+        }
 
         let reader = builder.build_from_path_or_stdin(self.input.as_ref())?;
 
@@ -152,7 +170,7 @@ mod tests {
             parse_subcmd::<Create>("sfs create -s sample0=group0,sample1,sample2=group2 input.bcf");
 
         assert_eq!(
-            args.samples,
+            args.samples.and_then(|samples| samples.list),
             Some(vec![
                 (String::from("sample0"), Some(String::from("group0"))),
                 (String::from("sample1"), None),
@@ -163,14 +181,26 @@ mod tests {
 
     #[test]
     fn test_project() {
-        let args = parse_subcmd::<Create>("sfs create -p 6,3,9 input.bcf");
+        let args = parse_subcmd::<Create>("sfs create --project-shape 6,3,9 input.bcf");
 
-        assert_eq!(args.project, Some(vec![6, 3, 9]));
+        assert_eq!(
+            args.project.and_then(|project| project.shape),
+            Some(vec![6, 3, 9])
+        );
     }
 
     #[test]
     fn test_project_args_conflict() {
-        let result = try_parse_subcmd::<Create>("sfs create -p 5 -P 2 input.bcf");
+        let result = try_parse_subcmd::<Create>(
+            "sfs create --project-shape 5 --project-individuals 2 input.bcf",
+        );
+
+        assert_eq!(result.unwrap_err().kind(), ClapErrorKind::ArgumentConflict)
+    }
+
+    #[test]
+    fn test_project_strict_conflict() {
+        let result = try_parse_subcmd::<Create>("sfs create -p 2 --strict input.bcf");
 
         assert_eq!(result.unwrap_err().kind(), ClapErrorKind::ArgumentConflict)
     }

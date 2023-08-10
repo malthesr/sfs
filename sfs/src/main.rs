@@ -29,15 +29,22 @@ pub struct Cli {
     #[command(subcommand)]
     command: Command,
 
-    /// Suppress warnings.
+    /// Suppress log output.
     ///
-    /// By default, only warnings are printed. By setting this flag, warnings will be disabled.
-    #[arg(short = 'q', long, global = true, conflicts_with = "verbose")]
-    quiet: bool,
+    /// By default, information may be logged to stderr while running. Set this flag once to silence
+    /// normal logging output, and set twice to silence warnings.
+    #[arg(
+        short = 'q',
+        long,
+        action = ArgAction::Count,
+        global = true,
+        conflicts_with = "verbose"
+    )]
+    quiet: u8,
 
-    /// Verbosity.
+    /// Log output verbosity.
     ///
-    /// Flag can be set multiply times to increase verbosity, or left unset for quiet mode.
+    /// Set this flag times to show debug information, and set twice to show trace information.
     #[clap(short = 'v', long, action = ArgAction::Count, global = true)]
     verbose: u8,
 
@@ -52,8 +59,11 @@ impl Cli {
             eprintln!("{self:#?}");
         }
 
-        let level = if self.quiet {
-            log::LevelFilter::Off
+        let level = if self.quiet > 0 {
+            match self.quiet {
+                1 => log::LevelFilter::Warn,
+                _ => log::LevelFilter::Off,
+            }
         } else {
             match self.verbose {
                 0 => log::LevelFilter::Info,

@@ -111,8 +111,15 @@ impl Builder {
         self
     }
 
-    pub fn set_projection(mut self, project_to: Shape) -> Self {
-        self.project_to = Some(project_to);
+    pub fn set_project_individuals(self, individuals: Vec<usize>) -> Self {
+        self.set_project_shape(Shape(individuals.into_iter().map(|i| 2 * i + 1).collect()))
+    }
+
+    pub fn set_project_shape<S>(mut self, shape: S) -> Self
+    where
+        S: Into<Shape>,
+    {
+        self.project_to = Some(shape.into());
         self
     }
 

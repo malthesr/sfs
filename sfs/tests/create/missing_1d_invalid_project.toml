@@ -1,2 +1,2 @@
-args = ["create", "-vv", "-p", "12", "tests/create/missing.bcf"]
+args = ["create", "-vv", "--project-shape", "12", "tests/create/missing.bcf"]
 status = "failed"
