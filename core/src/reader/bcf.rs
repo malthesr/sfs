@@ -26,7 +26,6 @@ where
     pub fn new(inner: bgzf::Reader<R>) -> io::Result<Self> {
         let mut inner = bcf::Reader::from(inner);
 
-        inner.read_file_format()?;
         let header = inner.read_header()?;
         let string_maps = bcf::header::StringMaps::try_from(&header)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
