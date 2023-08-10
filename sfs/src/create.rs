@@ -127,26 +127,13 @@ fn parse_key_val(s: &str) -> Result<(String, Option<String>), clap::Error> {
 
 impl Create {
     pub fn run(self) -> Result<(), Error> {
-        match (self.input.is_some(), std::io::stdin().is_terminal()) {
-            (false, false) | (true, true) => (),
-            (true, false) => {
-                if !self.allow_stdin {
-                    return Err(Create::command()
-                        .error(
-                            clap::error::ErrorKind::TooManyValues,
-                            "received input both via file and stdin",
-                        )
-                        .into());
-                }
-            }
-            (false, true) => {
-                return Err(Create::command()
-                    .error(
-                        clap::error::ErrorKind::TooFewValues,
-                        "missing input via file or stdin",
-                    )
-                    .into())
-            }
+        if self.input.is_some() && !io::stdin().is_terminal() && !self.allow_stdin {
+            return Err(Create::command()
+                .error(
+                    clap::error::ErrorKind::TooManyValues,
+                    "received input both via file and stdin",
+                )
+                .into());
         }
 
         let mut builder = reader::Builder::default().set_threads(self.threads);

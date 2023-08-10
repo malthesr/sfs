@@ -2,7 +2,7 @@ use std::{
     collections::HashSet,
     fmt,
     fs::File,
-    io::{self, Read},
+    io::{self, IsTerminal, Read},
     num::NonZeroUsize,
     path::{Path, PathBuf},
 };
@@ -147,6 +147,13 @@ impl Builder {
 
             genotype_reader(reader, format, compression_method, threads)
         } else {
+            if std::io::stdin().is_terminal() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "missing input VCF/BCF via file or stdin",
+                ));
+            }
+
             let mut reader = io::stdin().lock();
 
             let (format, compression_method) =
