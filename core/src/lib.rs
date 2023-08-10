@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 #[cfg(test)]
 #[macro_use]
 pub(crate) mod approx;

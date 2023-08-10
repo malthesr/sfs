@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 use std::io::Write;
 
 use anyhow::Error;
