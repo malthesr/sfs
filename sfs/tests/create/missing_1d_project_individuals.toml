@@ -1,6 +1,5 @@
 args = [
   "create",
-  "--allow-stdin",
   "-p",
   "3",
   "tests/create/missing.bcf"

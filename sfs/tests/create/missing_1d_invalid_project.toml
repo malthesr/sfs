@@ -1,6 +1,5 @@
 args = [
   "create",
-  "--allow-stdin",
   "-vv",
   "--project-shape",
   "12",

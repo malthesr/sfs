@@ -1,6 +1,5 @@
 args = [
   "create",
-  "--allow-stdin",
   "-S",
   "tests/create/simple_2d_all.samples",
   "tests/create/simple.bcf"

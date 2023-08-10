@@ -6,6 +6,8 @@ use clap::{Parser, ValueEnum};
 
 use sfs_core::array::Axis;
 
+use crate::utils::check_input_xor_stdin;
+
 /// Format, marginalize, and convert SFS.
 #[derive(Debug, Parser)]
 pub struct View {
@@ -86,6 +88,8 @@ impl From<Format> for sfs_core::spectrum::io::Format {
 
 impl View {
     pub fn run(self) -> Result<(), Error> {
+        check_input_xor_stdin(self.path.as_ref())?;
+
         let mut sfs = sfs_core::spectrum::io::read::Builder::default()
             .read_from_path_or_stdin(self.path.as_ref())?;
 

@@ -4,6 +4,8 @@ use anyhow::Error;
 
 use clap::{Parser, ValueEnum};
 
+use crate::utils::check_input_xor_stdin;
+
 /// Fold SFS.
 #[derive(Debug, Parser)]
 pub struct Fold {
@@ -58,6 +60,8 @@ impl From<Fill> for f64 {
 
 impl Fold {
     pub fn run(self) -> Result<(), Error> {
+        check_input_xor_stdin(self.path.as_ref())?;
+
         let mut scs = sfs_core::spectrum::io::read::Builder::default()
             .read_from_path_or_stdin(self.path.as_ref())?;
 

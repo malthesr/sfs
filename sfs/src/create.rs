@@ -1,16 +1,14 @@
-use std::{
-    io::{self, IsTerminal as _},
-    num::NonZeroUsize,
-    path::PathBuf,
-};
+use std::{io, num::NonZeroUsize, path::PathBuf};
 
 use anyhow::Error;
 
-use clap::{Args, CommandFactory, Parser};
+use clap::{Args, Parser};
 
 mod runner;
 use runner::Runner;
 use sfs_core::reader;
+
+use crate::utils::check_input_xor_stdin;
 
 /// Create SFS from VCF/BCF.
 #[derive(Debug, Parser)]
@@ -47,13 +45,6 @@ pub struct Create {
     /// Multi-threading currently only affects reading and parsing BGZF compressed input.
     #[arg(short = 't', long, default_value_t = NonZeroUsize::new(4).unwrap(), value_name = "INT")]
     threads: NonZeroUsize,
-
-    /// Allow stdin with input file.
-    ///
-    /// In some circumstances, including the current test suite, stdin is passed while also
-    /// providing a file. Use this flag to disable checking for double input and only read file.
-    #[clap(long, hide = true)]
-    allow_stdin: bool,
 }
 
 #[derive(Args, Debug, Eq, PartialEq)]
@@ -127,14 +118,7 @@ fn parse_key_val(s: &str) -> Result<(String, Option<String>), clap::Error> {
 
 impl Create {
     pub fn run(self) -> Result<(), Error> {
-        if self.input.is_some() && !io::stdin().is_terminal() && !self.allow_stdin {
-            return Err(Create::command()
-                .error(
-                    clap::error::ErrorKind::TooManyValues,
-                    "received input both via file and stdin",
-                )
-                .into());
-        }
+        check_input_xor_stdin(self.input.as_ref())?;
 
         let mut builder = reader::Builder::default().set_threads(self.threads);
 

@@ -11,6 +11,8 @@ use sfs_core::spectrum::{
 mod runner;
 use runner::Runner;
 
+use crate::utils::check_input_xor_stdin;
+
 /// Calculate statistics from SFS.
 #[derive(Debug, Parser)]
 pub struct Stat {
@@ -115,6 +117,8 @@ impl fmt::Display for Statistic {
 
 impl Stat {
     pub fn run(self) -> Result<(), Error> {
+        check_input_xor_stdin(self.path.as_ref())?;
+
         let mut runner = Runner::try_from(&self)?;
         runner.run()
     }

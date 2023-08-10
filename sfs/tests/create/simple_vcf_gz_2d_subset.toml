@@ -1,6 +1,5 @@
 args = [
   "create",
-  "--allow-stdin",
   "-s",
   "sample0=B,sample1=A,sample4=A",
   "tests/create/simple.vcf.gz"
