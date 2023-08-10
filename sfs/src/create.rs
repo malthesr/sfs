@@ -151,6 +151,10 @@ impl Create {
 
         let mut builder = reader::Builder::default().set_threads(self.threads);
 
+        if let Some(path) = self.input.to_owned() {
+            builder = builder.set_path(path);
+        }
+
         if let Some(samples) = self.samples {
             builder = match (samples.list, samples.file) {
                 (Some(list), None) => builder.set_samples(list)?,
@@ -171,7 +175,7 @@ impl Create {
             };
         }
 
-        let reader = builder.build_from_path_or_stdin(self.input.as_ref())?;
+        let reader = builder.build()?;
 
         let mut runner = Runner::new(reader, self.strict)?;
         let sfs = runner.run()?;

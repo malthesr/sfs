@@ -1,27 +1,40 @@
 use std::{
     collections::HashSet,
-    fmt, io,
+    fmt,
+    fs::File,
+    io::{self, Read},
     num::NonZeroUsize,
     path::{Path, PathBuf},
 };
+
+use flate2::bufread::MultiGzDecoder;
+
+use noodles_bgzf as bgzf;
 
 use crate::{
     array::Shape,
     spectrum::project::{PartialProjection, ProjectionError},
 };
 
-use super::{bcf::Reader as BcfReader, sample_map::Population, GenotypeReader, Reader, SampleMap};
+use super::{
+    bcf::Reader as BcfReader, sample_map::Population, vcf::Reader as VcfReader, GenotypeReader,
+    Reader, SampleMap,
+};
 
 #[derive(Debug)]
 pub struct Builder {
+    path: Option<PathBuf>,
     format: Option<Format>,
+    compression_method: Option<Option<CompressionMethod>>,
     sample_map: Option<SampleMap>,
     project_to: Option<Shape>,
     threads: NonZeroUsize,
 }
 
 impl Builder {
-    fn build(self, reader: Box<dyn GenotypeReader>) -> Result<Reader, BuilderError> {
+    pub fn build(self) -> Result<Reader, BuilderError> {
+        let reader = self.build_reader()?;
+
         let sample_map = if let Some(sample_map) = self.sample_map {
             sample_map
         } else {
@@ -73,41 +86,81 @@ impl Builder {
         Ok(Reader::new_unchecked(reader, sample_map, projection))
     }
 
-    pub fn build_from_path<P>(self, path: P) -> Result<Reader, BuilderError>
-    where
-        P: AsRef<Path>,
-    {
-        match self.format {
-            None | Some(Format::Bcf) => {
-                let reader = BcfReader::from_path(path, self.threads).map(Box::new)?;
+    fn build_reader(&self) -> io::Result<Box<dyn GenotypeReader>> {
+        fn format_and_compression_method<R>(
+            reader: &mut R,
+            format: Option<Format>,
+            compression_method: Option<Option<CompressionMethod>>,
+        ) -> io::Result<(Format, Option<CompressionMethod>)>
+        where
+            R: io::BufRead,
+        {
+            let compression_method = match compression_method {
+                Some(compression_method) => compression_method,
+                None => CompressionMethod::detect(reader)?,
+            };
 
-                self.build(reader)
-            }
+            let format = match format {
+                Some(format) => format,
+                None => Format::detect(reader, compression_method)?,
+            };
+
+            Ok((format, compression_method))
         }
-    }
 
-    pub fn build_from_path_or_stdin<P>(self, path: Option<P>) -> Result<Reader, BuilderError>
-    where
-        P: AsRef<Path>,
-    {
-        match path {
-            Some(path) => self.build_from_path(path),
-            None => self.build_from_stdin(),
+        fn genotype_reader<R>(
+            reader: R,
+            format: Format,
+            compression_method: Option<CompressionMethod>,
+            threads: NonZeroUsize,
+        ) -> io::Result<Box<dyn GenotypeReader>>
+        where
+            R: 'static + io::BufRead,
+        {
+            let reader: Box<dyn GenotypeReader> = match compression_method {
+                Some(CompressionMethod::Bgzf) => {
+                    let bgzf_reader = bgzf::reader::Builder::default()
+                        .set_worker_count(threads)
+                        .build_from_reader(reader);
+
+                    match format {
+                        Format::Bcf => BcfReader::new(bgzf_reader).map(Box::new)?,
+                        Format::Vcf => VcfReader::new(bgzf_reader).map(Box::new)?,
+                    }
+                }
+                None => match format {
+                    Format::Bcf => BcfReader::new(reader).map(Box::new)?,
+                    Format::Vcf => VcfReader::new(reader).map(Box::new)?,
+                },
+            };
+
+            Ok(reader)
         }
-    }
 
-    pub fn build_from_stdin(self) -> Result<Reader, BuilderError> {
-        match self.format {
-            None | Some(Format::Bcf) => {
-                let reader = BcfReader::from_stdin(self.threads).map(Box::new)?;
+        if let Some(path) = self.path.as_ref() {
+            let mut reader = File::open(path).map(io::BufReader::new)?;
 
-                self.build(reader)
-            }
+            let (format, compression_method) =
+                format_and_compression_method(&mut reader, self.format, self.compression_method)?;
+
+            genotype_reader(reader, format, compression_method, self.threads)
+        } else {
+            let mut reader = io::stdin().lock();
+
+            let (format, compression_method) =
+                format_and_compression_method(&mut reader, self.format, self.compression_method)?;
+
+            genotype_reader(reader, format, compression_method, self.threads)
         }
     }
 
     pub fn set_format(mut self, format: Format) -> Self {
         self.format = Some(format);
+        self
+    }
+
+    pub fn set_path(mut self, path: PathBuf) -> Self {
+        self.path = Some(path);
         self
     }
 
@@ -157,7 +210,9 @@ impl Builder {
 impl Default for Builder {
     fn default() -> Self {
         Self {
+            path: None,
             format: None,
+            compression_method: None,
             sample_map: None,
             threads: NonZeroUsize::new(1).unwrap(),
             project_to: None,
@@ -168,6 +223,63 @@ impl Default for Builder {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Format {
     Bcf,
+    Vcf,
+}
+
+impl Format {
+    fn detect<R>(
+        reader: &mut R,
+        compression_method: Option<CompressionMethod>,
+    ) -> io::Result<Format>
+    where
+        R: io::BufRead,
+    {
+        const BCF_MAGIC_NUMBER: [u8; 3] = *b"BCF";
+
+        let src = reader.fill_buf()?;
+
+        if let Some(compression_method) = compression_method {
+            if compression_method == CompressionMethod::Bgzf {
+                let mut decoder = MultiGzDecoder::new(src);
+                let mut buf = [0; BCF_MAGIC_NUMBER.len()];
+                decoder.read_exact(&mut buf)?;
+
+                if buf == BCF_MAGIC_NUMBER {
+                    return Ok(Format::Bcf);
+                }
+            }
+        } else if let Some(buf) = src.get(..BCF_MAGIC_NUMBER.len()) {
+            if buf == BCF_MAGIC_NUMBER {
+                return Ok(Format::Bcf);
+            }
+        }
+
+        Ok(Format::Vcf)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CompressionMethod {
+    Bgzf,
+}
+
+impl CompressionMethod {
+    fn detect<R>(reader: &mut R) -> io::Result<Option<Self>>
+    where
+        R: io::BufRead,
+    {
+        const GZIP_MAGIC_NUMBER: [u8; 2] = [0x1f, 0x8b];
+
+        let src = reader.fill_buf()?;
+
+        if let Some(buf) = src.get(..GZIP_MAGIC_NUMBER.len()) {
+            if buf == GZIP_MAGIC_NUMBER {
+                return Ok(Some(CompressionMethod::Bgzf));
+            }
+        }
+
+        Ok(None)
+    }
 }
 
 #[derive(Debug)]

@@ -11,6 +11,7 @@ use sample_map::Sample;
 pub use sample_map::SampleMap;
 
 pub mod bcf;
+pub mod vcf;
 
 use crate::{
     spectrum::{
