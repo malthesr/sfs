@@ -8,7 +8,7 @@ pub use genotype::{Genotype, GenotypeError, GenotypeResult, GenotypeSkipped};
 
 pub mod sample_map;
 use sample_map::Sample;
-pub use sample_map::SampleMap;
+pub use sample_map::{SampleId, SampleMap};
 
 pub mod bcf;
 pub mod vcf;
@@ -20,8 +20,6 @@ use crate::{
     },
     Scs,
 };
-
-use self::sample_map::SampleId;
 
 #[derive(Debug)]
 pub enum ReadStatus<T> {
