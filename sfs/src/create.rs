@@ -12,12 +12,12 @@ mod runner;
 use runner::Runner;
 use sfs_core::reader;
 
-/// Create SFS from BCF.
+/// Create SFS from VCF/BCF.
 #[derive(Debug, Parser)]
 pub struct Create {
-    /// Input BCF.
+    /// Input VCF/BCF.
     ///
-    /// If no file is provided, stdin will be used.
+    /// If no file is provided, stdin will be used. Input may be BGZF-compressed or uncompressed.
     #[arg(value_name = "FILE")]
     input: Option<PathBuf>,
 
@@ -44,7 +44,7 @@ pub struct Create {
 
     /// Number of threads.
     ///
-    /// Multi-threading currently only affects BCF reading and parsing.
+    /// Multi-threading currently only affects reading and parsing BGZF compressed input.
     #[arg(short = 't', long, default_value_t = NonZeroUsize::new(4).unwrap(), value_name = "INT")]
     threads: NonZeroUsize,
 
