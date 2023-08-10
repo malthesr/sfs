@@ -1,5 +1,6 @@
 args = [
   "create",
+  "--allow-stdin",
   "-v",
   "-s",
   "sample0=group0,sample1=group1,sample4=group4",

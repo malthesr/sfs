@@ -1,4 +1,6 @@
-args = ["create",
+args = [
+  "create",
+  "--allow-stdin",
   "-q",
   "-S",
   "tests/create/large_4d_project_subset.samples",

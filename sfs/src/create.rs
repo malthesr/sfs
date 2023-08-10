@@ -1,8 +1,12 @@
-use std::{io, num::NonZeroUsize, path::PathBuf};
+use std::{
+    io::{self, IsTerminal as _},
+    num::NonZeroUsize,
+    path::PathBuf,
+};
 
 use anyhow::Error;
 
-use clap::{Args, Parser};
+use clap::{Args, CommandFactory, Parser};
 
 mod runner;
 use runner::Runner;
@@ -43,6 +47,13 @@ pub struct Create {
     /// Multi-threading currently only affects BCF reading and parsing.
     #[arg(short = 't', long, default_value_t = NonZeroUsize::new(4).unwrap(), value_name = "INT")]
     threads: NonZeroUsize,
+
+    /// Allow stdin with input file.
+    ///
+    /// In some circumstances, including the current test suite, stdin is passed while also
+    /// providing a file. Use this flag to disable checking for double input and only read file.
+    #[clap(long, hide = true)]
+    allow_stdin: bool,
 }
 
 #[derive(Args, Debug, Eq, PartialEq)]
@@ -116,6 +127,28 @@ fn parse_key_val(s: &str) -> Result<(String, Option<String>), clap::Error> {
 
 impl Create {
     pub fn run(self) -> Result<(), Error> {
+        match (self.input.is_some(), std::io::stdin().is_terminal()) {
+            (false, false) | (true, true) => (),
+            (true, false) => {
+                if !self.allow_stdin {
+                    return Err(Create::command()
+                        .error(
+                            clap::error::ErrorKind::TooManyValues,
+                            "received input both via file and stdin",
+                        )
+                        .into());
+                }
+            }
+            (false, true) => {
+                return Err(Create::command()
+                    .error(
+                        clap::error::ErrorKind::TooFewValues,
+                        "missing input via file or stdin",
+                    )
+                    .into())
+            }
+        }
+
         let mut builder = reader::Builder::default().set_threads(self.threads);
 
         if let Some(samples) = self.samples {

@@ -1,1 +1,8 @@
-args = ["create", "-vv", "--project-shape", "7", "tests/create/missing.bcf"]
+args = [
+  "create",
+  "--allow-stdin",
+  "-vv",
+  "--project-shape",
+  "7",
+  "tests/create/missing.bcf"
+]

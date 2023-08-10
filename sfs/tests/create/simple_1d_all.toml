@@ -1,1 +1,5 @@
-args = ["create", "tests/create/simple.bcf"]
+args = [
+  "create",
+  "--allow-stdin",
+  "tests/create/simple.bcf"
+]

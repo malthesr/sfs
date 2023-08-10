@@ -2,6 +2,7 @@
 fn create() {
     trycmd::TestCases::new()
         .case("tests/create/*.toml")
+        .env("TRYCMD", "true")
         .default_bin_name("sfs");
 }
 
