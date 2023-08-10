@@ -17,8 +17,10 @@ use crate::{
 };
 
 use super::{
-    bcf::Reader as BcfReader, sample_map::Population, vcf::Reader as VcfReader, GenotypeReader,
-    Reader, SampleMap,
+    bcf::Reader as BcfReader,
+    sample_map::{Population, Sample},
+    vcf::Reader as VcfReader,
+    GenotypeReader, Reader, SampleMap,
 };
 
 #[derive(Debug)]
@@ -33,31 +35,27 @@ pub struct Builder {
 
 impl Builder {
     pub fn build(self) -> Result<Reader, BuilderError> {
-        let reader = self.build_reader()?;
+        let Builder {
+            path,
+            format,
+            compression_method,
+            sample_map,
+            project_to,
+            threads,
+        } = self;
 
-        let sample_map = if let Some(sample_map) = self.sample_map {
-            sample_map
-        } else {
-            reader
-                .samples()
-                .iter()
-                .map(|sample| (sample.0.to_string(), Population::Unnamed))
-                .collect()
-        };
+        let reader = Self::build_reader(path, format, compression_method, threads)?;
+        let sample_map = Self::build_sample_map(sample_map, reader.samples())?;
+        let projection = Self::build_projection(project_to, &sample_map)?;
 
-        // All samples in sample map should be in reader samples
-        let reader_samples = HashSet::<_>::from_iter(reader.samples().iter());
-        if let Some(unknown_sample) = sample_map
-            .samples()
-            .find(|sample| !reader_samples.contains(sample))
-        {
-            return Err(BuilderError::UnknownSample {
-                sample: unknown_sample.0.clone(),
-            });
-        }
+        Ok(Reader::new_unchecked(reader, sample_map, projection))
+    }
 
-        let projection = self
-            .project_to
+    fn build_projection(
+        project_to: Option<Shape>,
+        sample_map: &SampleMap,
+    ) -> Result<Option<PartialProjection>, BuilderError> {
+        project_to
             .map(|project_to| {
                 let project_from = sample_map.shape();
 
@@ -81,12 +79,16 @@ impl Builder {
                     PartialProjection::from_shape(project_to)
                 }
             })
-            .transpose()?;
-
-        Ok(Reader::new_unchecked(reader, sample_map, projection))
+            .transpose()
+            .map_err(BuilderError::from)
     }
 
-    fn build_reader(&self) -> io::Result<Box<dyn GenotypeReader>> {
+    fn build_reader(
+        path: Option<PathBuf>,
+        format: Option<Format>,
+        compression_method: Option<Option<CompressionMethod>>,
+        threads: NonZeroUsize,
+    ) -> io::Result<Box<dyn GenotypeReader>> {
         fn format_and_compression_method<R>(
             reader: &mut R,
             format: Option<Format>,
@@ -137,21 +139,48 @@ impl Builder {
             Ok(reader)
         }
 
-        if let Some(path) = self.path.as_ref() {
+        if let Some(path) = path.as_ref() {
             let mut reader = File::open(path).map(io::BufReader::new)?;
 
             let (format, compression_method) =
-                format_and_compression_method(&mut reader, self.format, self.compression_method)?;
+                format_and_compression_method(&mut reader, format, compression_method)?;
 
-            genotype_reader(reader, format, compression_method, self.threads)
+            genotype_reader(reader, format, compression_method, threads)
         } else {
             let mut reader = io::stdin().lock();
 
             let (format, compression_method) =
-                format_and_compression_method(&mut reader, self.format, self.compression_method)?;
+                format_and_compression_method(&mut reader, format, compression_method)?;
 
-            genotype_reader(reader, format, compression_method, self.threads)
+            genotype_reader(reader, format, compression_method, threads)
         }
+    }
+
+    fn build_sample_map(
+        sample_map: Option<SampleMap>,
+        samples: &[Sample],
+    ) -> Result<SampleMap, BuilderError> {
+        let sample_map = if let Some(sample_map) = sample_map {
+            sample_map
+        } else {
+            samples
+                .iter()
+                .map(|sample| (sample.as_ref().to_string(), Population::Unnamed))
+                .collect()
+        };
+
+        // All samples in sample map should be in reader samples
+        let reader_samples = HashSet::<_>::from_iter(samples);
+        if let Some(unknown_sample) = sample_map
+            .samples()
+            .find(|sample| !reader_samples.contains(sample))
+        {
+            return Err(BuilderError::UnknownSample {
+                sample: unknown_sample.as_ref().to_string(),
+            });
+        }
+
+        Ok(sample_map)
     }
 
     pub fn set_format(mut self, format: Format) -> Self {
