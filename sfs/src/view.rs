@@ -2,13 +2,17 @@ use std::{fmt, path::PathBuf};
 
 use anyhow::Error;
 
-use clap::{Parser, ValueEnum};
+use clap::{Args, Parser, ValueEnum};
 
-use sfs_core::array::Axis;
+use sfs_core::array::{Axis, Shape};
 
 use crate::utils::check_input_xor_stdin;
 
-/// Format, marginalize, and convert SFS.
+/// Format, marginalize, project, and convert SFS.
+///
+/// Note that the order of operations matter: marginalization occurs before projection. To control
+/// the order of operations differently, chain together multiple commands by piping in the desired
+/// order.
 #[derive(Debug, Parser)]
 pub struct View {
     /// Input SFS.
@@ -17,41 +21,92 @@ pub struct View {
     #[clap(value_parser, value_name = "PATH")]
     pub path: Option<PathBuf>,
 
-    /// Marginalize out populations except those with the provided 0-based indices.
-    ///
-    /// The indices correspond to the ordering of the dimensions of the SFS in the same way as the
-    /// shape.
-    #[clap(short = 'M', long, use_value_delimiter = true, value_name = "INT,...")]
-    pub marginalize_keep: Option<Vec<usize>>,
-
-    /// Marginalize out populations with the provided 0-based indices.
-    ///
-    /// The indices correspond to the ordering of the dimensions of the SFS in the same way as the
-    /// shape.
-    #[clap(
-        short = 'm',
-        long,
-        conflicts_with = "marginalize_keep",
-        use_value_delimiter = true,
-        value_name = "INT,..."
-    )]
-    pub marginalize_remove: Option<Vec<usize>>,
-
-    /// Output SFS path.
+    /// Output path.
     ///
     /// If no path is given, SFS will be output to stdout.
     #[clap(short = 'o', long, value_name = "PATH")]
     pub output: Option<PathBuf>,
 
-    /// Output SFS format.
+    /// Output format.
     #[clap(short = 'O', long, default_value_t = Format::Text, value_name = "FORMAT")]
     pub output_format: Format,
 
-    /// Precision to use when printing SFS.
+    #[command(flatten)]
+    marginalize: Option<Marginalize>,
+
+    #[command(flatten)]
+    project: Option<Project>,
+
+    /// Print precision.
     ///
     /// This is only used for printing SFS to plain text format, and will be ignored otherwise.
-    #[clap(short = 'p', long, default_value_t = 6, value_name = "INT")]
+    #[clap(long, default_value_t = 6, value_name = "INT")]
     pub precision: usize,
+}
+
+#[derive(Args, Debug, Eq, PartialEq)]
+#[group(required = false, multiple = false)]
+struct Marginalize {
+    /// Marginalize populations.
+    ///
+    /// Marginalize out provided populations. Marginalization corresponds to an
+    /// array sum over the SFS seen as an array. Use a comma-separated list of 0-based dimensions to
+    ///  keep, using the same ordering of the dimensions of the SFS as specified e.g. in the header.
+    #[clap(
+        short = 'm',
+        long = "marginalize-remove",
+        use_value_delimiter = true,
+        value_name = "INT,..."
+    )]
+    pub remove: Option<Vec<usize>>,
+
+    /// Marginalize remaining populations.
+    ///
+    /// Alternative to `--marginalize-remove`, see documentation for background. Using this
+    /// argument, the marginalization can be specified in terms of dimensions to keep, rather than
+    /// dimensions to remove.
+    #[clap(
+        short = 'M',
+        long = "marginalize-keep",
+        use_value_delimiter = true,
+        value_name = "INT,..."
+    )]
+    pub keep: Option<Vec<usize>>,
+}
+
+#[derive(Args, Debug, Eq, PartialEq)]
+#[group(required = false, multiple = false)]
+struct Project {
+    /// Projected individuals.
+    ///
+    /// Using this argument, it is possible to project the SFS down to a lower number of
+    /// individuals.  Use a comma-separated list of values giving the new shape of the SFS.
+    /// For example, `--project-individuals 3,2` would project a two-dimensional SFS down to three
+    /// individuals in the first dimension and two in the second.
+    ///
+    /// Note that it is also possible to project during creation of the SFS using the `create`
+    /// subcommand, and projection after creation is not in equivalent. Where applicable,
+    /// prefer projecting during creation to use more data in the presence of missingness.
+    #[clap(
+        short = 'p',
+        long = "project-individuals",
+        use_value_delimiter = true,
+        value_name = "INT,..."
+    )]
+    individuals: Option<Vec<usize>>,
+
+    /// Projected shape.
+    ///
+    /// Alternative to `--project-individuals`, see documentation for background. Using this
+    /// argument, the projection can be specified by shape, rather than number of individuals.
+    /// For example, `--project-shape 7,5` would project a two-dimensional SFS down to three diploid
+    /// individuals in the first dimension and two in the second.
+    #[clap(
+        long = "project-shape",
+        use_value_delimiter = true,
+        value_name = "INT,..."
+    )]
+    shape: Option<Vec<usize>>,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, Eq, PartialEq)]
@@ -93,20 +148,32 @@ impl View {
         let mut sfs = sfs_core::spectrum::io::read::Builder::default()
             .read_from_path_or_stdin(self.path.as_ref())?;
 
-        // If marginalizing, normalize to indices to marginalize away (rather than keep)
-        if let Some(axes) = match (self.marginalize_keep, self.marginalize_remove) {
-            (Some(keep), None) => Some(
-                (0..sfs.dimensions())
+        if let Some(marginalize) = self.marginalize {
+            // If marginalizing, normalize to indices to marginalize away (rather than keep)
+            let axes = match (marginalize.keep, marginalize.remove) {
+                (Some(keep), None) => (0..sfs.dimensions())
                     .filter(|i| !keep.contains(i))
                     .collect(),
-            ),
-            (None, Some(remove)) => Some(remove),
-            (None, None) => None,
-            (Some(_), Some(_)) => unreachable!("checked by clap"),
-        } {
+
+                (None, Some(remove)) => remove,
+                _ => unreachable!("checked by clap"),
+            };
+
             let axes = axes.into_iter().map(Axis).collect::<Vec<_>>();
             sfs = sfs.marginalize(&axes)?;
-        };
+        }
+
+        if let Some(project) = self.project {
+            let shape = match (project.individuals, project.shape) {
+                (Some(individuals), None) => {
+                    Shape(individuals.into_iter().map(|i| 2 * i + 1).collect())
+                }
+                (None, Some(shape)) => Shape(shape),
+                _ => unreachable!("checked by clap"),
+            };
+
+            sfs = sfs.project(shape)?;
+        }
 
         sfs_core::spectrum::io::write::Builder::default()
             .set_precision(self.precision)

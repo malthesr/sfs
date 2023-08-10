@@ -1,8 +1,10 @@
 args = [
   "view",
   "--precision",
-  "0",
-  "--marginalize-keep",
-  "1,0",
+  "2",
+  "--marginalize-remove",
+  "1",
+  "--project-shape",
+  "2,2",
   "tests/view/three_populations.sfs"
 ]

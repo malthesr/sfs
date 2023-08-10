@@ -1,6 +1,6 @@
 args = [
   "view",
-  "-p",
+  "--precision",
   "0",
   "--marginalize-remove",
   "2",
