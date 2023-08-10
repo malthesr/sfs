@@ -73,7 +73,7 @@ impl Reader {
             .projection
             .clone()
             .map(|projection| projection.project_to().clone().into_shape())
-            .unwrap_or_else(|| self.sample_map.shape().clone());
+            .unwrap_or_else(|| self.sample_map.shape());
 
         Scs::from_zeros(shape)
     }
@@ -153,12 +153,10 @@ impl Reader {
             } else {
                 Site::InsufficientData
             }
+        } else if self.skipped_samples.is_empty() {
+            Site::Standard(&self.counts)
         } else {
-            if self.skipped_samples.is_empty() {
-                Site::Standard(&self.counts)
-            } else {
-                Site::InsufficientData
-            }
+            Site::InsufficientData
         };
 
         ReadStatus::Read(site)

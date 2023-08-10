@@ -94,7 +94,7 @@ where
     type Epsilon = T::Epsilon;
 
     fn approx_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        <[T]>::approx_eq(&self, &other, epsilon)
+        <[T]>::approx_eq(self, other, epsilon)
     }
 }
 
