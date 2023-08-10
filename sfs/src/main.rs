@@ -24,7 +24,7 @@ const NAME: &str = env!("CARGO_BIN_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
 
-/// Tools for working with SFS.
+/// Tools for working with site frequency spectra.
 #[derive(Debug, Parser)]
 #[clap(name = NAME, author = AUTHOR, version = VERSION, about)]
 #[clap(subcommand_required = true)]

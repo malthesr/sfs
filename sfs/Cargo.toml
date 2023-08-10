@@ -2,6 +2,12 @@
 name = "sfs"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.70"
+license = "MIT"
+authors = ["Malthe Sebro Rasmussen"]
+description = "Tools for working with site frequency spectra"
+homepage = "https://github.com/malthesr/sfs"
+repository = "https://github.com/malthesr/sfs"
 
 [dependencies]
 anyhow = "1.0"
