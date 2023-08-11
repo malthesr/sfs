@@ -5,7 +5,7 @@ use vcf::record::{
     genotypes::sample::value::genotype::Genotype as VcfGenotype, Record as VcfRecord,
 };
 
-use crate::reader::{
+use crate::input::{
     genotype::{self, Genotype},
     ReadStatus, Sample,
 };

@@ -1,4 +1,4 @@
-use crate::reader::{ReadStatus, Sample};
+use crate::input::{ReadStatus, Sample};
 
 pub mod bcf;
 

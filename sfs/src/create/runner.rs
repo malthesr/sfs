@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Error};
 
 use sfs_core::{
-    reader::{
+    input::{
         site::{self, Site},
         ReadStatus,
     },

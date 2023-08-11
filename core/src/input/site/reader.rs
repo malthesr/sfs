@@ -4,7 +4,7 @@ mod builder;
 pub use builder::Builder;
 
 use crate::{
-    reader::{genotype, sample, ReadStatus, Sample},
+    input::{genotype, sample, ReadStatus, Sample},
     spectrum::{project::PartialProjection, Count},
     Scs,
 };

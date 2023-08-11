@@ -4,7 +4,7 @@
 #[macro_use]
 pub(crate) mod approx;
 
-pub mod reader;
+pub mod input;
 
 pub mod spectrum;
 pub use spectrum::{Scs, Sfs, Spectrum};

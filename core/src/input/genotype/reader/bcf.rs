@@ -6,7 +6,7 @@ use noodles_bcf as bcf;
 use noodles_vcf as vcf;
 use vcf::record::genotypes::sample::value::genotype::Genotype as VcfGenotype;
 
-use crate::reader::{genotype, ReadStatus, Sample};
+use crate::input::{genotype, ReadStatus, Sample};
 
 pub struct Reader<R> {
     pub inner: bcf::Reader<R>,

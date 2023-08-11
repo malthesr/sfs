@@ -6,7 +6,7 @@ use clap::{Args, Parser};
 
 mod runner;
 use runner::Runner;
-use sfs_core::reader::site;
+use sfs_core::input::site;
 
 use crate::utils::check_input_xor_stdin;
 
