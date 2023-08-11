@@ -32,6 +32,17 @@ impl AsRef<str> for Sample {
 pub struct Map(IndexMap<Sample, population::Id>);
 
 impl Map {
+    pub fn from_all<I>(samples: I) -> Self
+    where
+        I: IntoIterator<Item = Sample>,
+    {
+        Self::from_iter(
+            samples
+                .into_iter()
+                .map(|sample| (sample.as_ref().to_string(), Population::Unnamed)),
+        )
+    }
+
     pub fn from_path<P>(path: P) -> io::Result<Self>
     where
         P: AsRef<Path>,

@@ -9,6 +9,7 @@ use runner::Runner;
 use sfs_core::{
     array::Shape,
     input::{genotype, sample, site, Sample},
+    spectrum::io::text::write_spectrum,
     Input,
 };
 
@@ -78,6 +79,16 @@ struct Samples {
     file: Option<PathBuf>,
 }
 
+impl From<Samples> for site::reader::builder::Samples {
+    fn from(samples: Samples) -> Self {
+        match (samples.list, samples.file) {
+            (Some(list), None) => site::reader::builder::Samples::List(list),
+            (None, Some(path)) => site::reader::builder::Samples::Path(path),
+            _ => unreachable!("checked by clap"),
+        }
+    }
+}
+
 #[derive(Args, Debug, Eq, PartialEq)]
 #[group(required = false, multiple = false, conflicts_with = "strict")]
 struct Project {
@@ -112,6 +123,16 @@ struct Project {
     shape: Option<Vec<usize>>,
 }
 
+impl From<Project> for site::reader::builder::Project {
+    fn from(project: Project) -> Self {
+        match (project.individuals, project.shape) {
+            (Some(individuals), None) => site::reader::builder::Project::Individuals(individuals),
+            (None, Some(shape)) => site::reader::builder::Project::Shape(Shape::from(shape)),
+            _ => unreachable!("checked by clap"),
+        }
+    }
+}
+
 fn parse_sample_population(s: &str) -> Result<(Sample, sample::Population), clap::Error> {
     Ok(s.split_once('=')
         .map(|(key, val)| (Sample::from(key), sample::Population::from(Some(val))))
@@ -120,33 +141,11 @@ fn parse_sample_population(s: &str) -> Result<(Sample, sample::Population), clap
 
 impl Create {
     pub fn run(self) -> Result<(), Error> {
-        let samples = if let Some(samples) = self.samples {
-            match (samples.list, samples.file) {
-                (Some(list), None) => site::reader::builder::Samples::List(list),
-                (None, Some(path)) => site::reader::builder::Samples::Path(path),
-                _ => unreachable!("checked by clap"),
-            }
-        } else {
-            site::reader::builder::Samples::All
-        };
-
-        let precision = self.project.as_ref().map(|_| self.precision).unwrap_or(0);
-
-        let project = if let Some(project) = self.project {
-            Some(match (project.individuals, project.shape) {
-                (Some(individuals), None) => {
-                    site::reader::builder::Project::Individuals(individuals)
-                }
-                (None, Some(shape)) => site::reader::builder::Project::Shape(Shape::from(shape)),
-                _ => unreachable!("checked by clap"),
-            })
-        } else {
-            None
-        };
+        let precision = self.project.as_ref().map_or(0, |_| self.precision);
 
         let reader = site::reader::Builder::default()
-            .set_samples(samples)
-            .set_project(project)
+            .set_samples(self.samples.map(Into::into))
+            .set_project(self.project.map(Into::into))
             .build(
                 genotype::reader::Builder::default()
                     .set_input(Input::new(self.input)?)
@@ -156,7 +155,7 @@ impl Create {
 
         let sfs = Runner::new(reader, self.strict)?.run()?;
 
-        sfs_core::spectrum::io::text::write_spectrum(&mut io::stdout(), &sfs, precision)?;
+        write_spectrum(&mut io::stdout(), &sfs, precision)?;
 
         Ok(())
     }

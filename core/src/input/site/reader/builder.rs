@@ -10,20 +10,16 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Builder {
-    samples: Samples,
-    project: Option<Project>,
+    samples: Option<Option<Samples>>,
+    project: Option<Option<Project>>,
 }
 
 impl Builder {
     pub fn build(self, reader: genotype::reader::DynReader) -> Result<super::Reader, Error> {
-        let sample_map = match self.samples {
-            Samples::All => reader
-                .samples()
-                .iter()
-                .map(|sample| (sample.as_ref().to_string(), sample::Population::Unnamed))
-                .collect(),
-            Samples::Path(path) => sample::Map::from_path(path)?,
-            Samples::List(list) => sample::Map::from_iter(list),
+        let sample_map = match self.samples.unwrap_or(None) {
+            Some(Samples::List(list)) => sample::Map::from_iter(list),
+            Some(Samples::Path(path)) => sample::Map::from_path(path)?,
+            None => sample::Map::from_all(reader.samples().iter().cloned()),
         };
 
         if sample_map.is_empty() {
@@ -41,7 +37,8 @@ impl Builder {
             });
         }
 
-        let projection = if let Some(project_to) = self.project.map(Project::shape) {
+        let projection = if let Some(project_to) = self.project.unwrap_or(None).map(Project::shape)
+        {
             let project_from = sample_map.shape();
 
             if project_from.dimensions() != project_to.dimensions() {
@@ -73,12 +70,12 @@ impl Builder {
     }
 
     pub fn set_project(mut self, project: Option<Project>) -> Self {
-        self.project = project;
+        self.project = Some(project);
         self
     }
 
-    pub fn set_samples(mut self, samples: Samples) -> Self {
-        self.samples = samples;
+    pub fn set_samples(mut self, samples: Option<Samples>) -> Self {
+        self.samples = Some(samples);
         self
     }
 }
@@ -86,7 +83,7 @@ impl Builder {
 impl Default for Builder {
     fn default() -> Self {
         Self {
-            samples: Samples::All,
+            samples: None,
             project: None,
         }
     }
@@ -94,7 +91,6 @@ impl Default for Builder {
 
 #[derive(Debug)]
 pub enum Samples {
-    All,
     Path(PathBuf),
     List(Vec<(Sample, sample::Population)>),
 }
