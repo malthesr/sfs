@@ -1,14 +1,17 @@
 use std::{collections::HashMap, fs::File, io, path::Path};
 
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
 
 use crate::array::Shape;
 
+pub mod population;
+pub use population::Population;
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Sample(pub String);
+pub struct Sample(String);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct SampleId(pub usize);
+pub struct Id(pub usize);
 
 impl<S> From<S> for Sample
 where
@@ -25,37 +28,10 @@ impl AsRef<str> for Sample {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum Population {
-    Named(String),
-    Unnamed,
-}
-
-impl<S> From<Option<S>> for Population
-where
-    S: ToString,
-{
-    fn from(population: Option<S>) -> Self {
-        match population {
-            Some(population) => Self::Named(population.to_string()),
-            None => Self::Unnamed,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct PopulationId(pub usize);
-
-impl From<PopulationId> for usize {
-    fn from(id: PopulationId) -> Self {
-        id.0
-    }
-}
-
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct SampleMap(IndexMap<Sample, PopulationId>);
+pub struct Map(IndexMap<Sample, population::Id>);
 
-impl SampleMap {
+impl Map {
     pub fn from_path<P>(path: P) -> io::Result<Self>
     where
         P: AsRef<Path>,
@@ -82,16 +58,16 @@ impl SampleMap {
             .collect()
     }
 
-    pub fn get_population_id(&self, sample: &Sample) -> Option<PopulationId> {
+    pub fn get_population_id(&self, sample: &Sample) -> Option<population::Id> {
         self.0.get(sample).copied()
     }
 
-    pub fn get_sample(&self, id: SampleId) -> Option<&Sample> {
+    pub fn get_sample(&self, id: Id) -> Option<&Sample> {
         self.0.get_index(id.0).map(|opt| opt.0)
     }
 
-    pub fn get_sample_id(&self, sample: &Sample) -> Option<SampleId> {
-        self.0.get_index_of(sample).map(SampleId)
+    pub fn get_sample_id(&self, sample: &Sample) -> Option<Id> {
+        self.0.get_index_of(sample).map(Id)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -102,7 +78,7 @@ impl SampleMap {
         self.population_sizes().len()
     }
 
-    pub fn population_sizes(&self) -> HashMap<PopulationId, usize> {
+    pub fn population_sizes(&self) -> HashMap<population::Id, usize> {
         let mut sizes = HashMap::new();
         for &population_id in self.0.values() {
             *sizes.entry(population_id).or_insert(0) += 1;
@@ -119,13 +95,13 @@ impl SampleMap {
 
         Shape(
             (0..population_sizes.len())
-                .map(|id| 1 + 2 * population_sizes.get(&PopulationId(id)).unwrap())
+                .map(|id| 1 + 2 * population_sizes.get(&population::Id(id)).unwrap())
                 .collect(),
         )
     }
 }
 
-impl<S, P> FromIterator<(S, P)> for SampleMap
+impl<S, P> FromIterator<(S, P)> for Map
 where
     S: Into<Sample>,
     P: Into<Population>,
@@ -134,7 +110,7 @@ where
     where
         I: IntoIterator<Item = (S, P)>,
     {
-        let mut population_map = PopulationMap::default();
+        let mut population_map = population::Map::default();
 
         Self(IndexMap::from_iter(iter.into_iter().map(
             |(sample_name, population_name)| {
@@ -144,22 +120,5 @@ where
                 )
             },
         )))
-    }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-struct PopulationMap(IndexSet<Population>);
-
-impl PopulationMap {
-    pub fn get(&self, name: &Population) -> Option<PopulationId> {
-        self.0.get_index_of(name).map(PopulationId)
-    }
-
-    pub fn get_or_insert(&mut self, name: Population) -> PopulationId {
-        self.get(&name).unwrap_or_else(|| self.insert(name))
-    }
-
-    pub fn insert(&mut self, name: Population) -> PopulationId {
-        PopulationId(self.0.insert_full(name).0)
     }
 }

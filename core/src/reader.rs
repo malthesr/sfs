@@ -6,9 +6,8 @@ pub use builder::{Builder, BuilderError, Format};
 mod genotype;
 pub use genotype::{Genotype, GenotypeError, GenotypeResult, GenotypeSkipped};
 
-pub mod sample_map;
-use sample_map::Sample;
-pub use sample_map::{SampleId, SampleMap};
+pub mod sample;
+pub use sample::Sample;
 
 pub mod bcf;
 pub mod vcf;
@@ -59,11 +58,11 @@ pub enum Site<'a> {
 
 pub struct Reader {
     reader: Box<dyn GenotypeReader>,
-    sample_map: SampleMap,
+    sample_map: sample::Map,
     counts: Count,
     totals: Count,
     projection: Option<PartialProjection>,
-    skipped_samples: Vec<(SampleId, GenotypeSkipped)>,
+    skipped_samples: Vec<(sample::Id, GenotypeSkipped)>,
 }
 
 impl Reader {
@@ -93,7 +92,7 @@ impl Reader {
 
     fn new_unchecked(
         reader: Box<dyn GenotypeReader>,
-        sample_map: SampleMap,
+        sample_map: sample::Map,
         projection: Option<PartialProjection>,
     ) -> Self {
         let dimensions = sample_map.number_of_populations();

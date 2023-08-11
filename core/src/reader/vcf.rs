@@ -6,8 +6,7 @@ use vcf::record::{
 };
 
 use super::{
-    sample_map::Sample, Genotype, GenotypeError, GenotypeReader, GenotypeResult, GenotypeSkipped,
-    ReadStatus,
+    Genotype, GenotypeError, GenotypeReader, GenotypeResult, GenotypeSkipped, ReadStatus, Sample,
 };
 
 pub struct Reader<R> {
@@ -25,7 +24,12 @@ where
         let mut inner = vcf::Reader::new(inner);
 
         let header = inner.read_header()?;
-        let samples = header.sample_names().iter().cloned().map(Sample).collect();
+        let samples = header
+            .sample_names()
+            .iter()
+            .cloned()
+            .map(Sample::from)
+            .collect();
 
         Ok(Self {
             inner,

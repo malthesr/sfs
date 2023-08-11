@@ -18,9 +18,9 @@ use crate::{
 
 use super::{
     bcf::Reader as BcfReader,
-    sample_map::{Population, Sample},
+    sample::{self, Population},
     vcf::Reader as VcfReader,
-    GenotypeReader, Reader, SampleMap,
+    GenotypeReader, Reader, Sample,
 };
 
 #[derive(Debug)]
@@ -28,7 +28,7 @@ pub struct Builder {
     path: Option<PathBuf>,
     format: Option<Format>,
     compression_method: Option<Option<CompressionMethod>>,
-    sample_map: Option<SampleMap>,
+    sample_map: Option<sample::Map>,
     project_to: Option<Shape>,
     threads: NonZeroUsize,
 }
@@ -53,7 +53,7 @@ impl Builder {
 
     fn build_projection(
         project_to: Option<Shape>,
-        sample_map: &SampleMap,
+        sample_map: &sample::Map,
     ) -> Result<Option<PartialProjection>, BuilderError> {
         project_to
             .map(|project_to| {
@@ -157,9 +157,9 @@ impl Builder {
     }
 
     fn build_sample_map(
-        sample_map: Option<SampleMap>,
+        sample_map: Option<sample::Map>,
         samples: &[Sample],
-    ) -> Result<SampleMap, BuilderError> {
+    ) -> Result<sample::Map, BuilderError> {
         let sample_map = if let Some(sample_map) = sample_map {
             sample_map
         } else {
@@ -205,7 +205,7 @@ impl Builder {
         self
     }
 
-    pub fn set_sample_map(mut self, sample_map: SampleMap) -> Result<Self, BuilderError> {
+    pub fn set_sample_map(mut self, sample_map: sample::Map) -> Result<Self, BuilderError> {
         if sample_map.is_empty() {
             Err(BuilderError::EmptySamplesMap)
         } else {
@@ -217,7 +217,7 @@ impl Builder {
     pub fn set_samples<I>(self, iter: I) -> Result<Self, BuilderError>
     where
         I: IntoIterator,
-        SampleMap: FromIterator<I::Item>,
+        sample::Map: FromIterator<I::Item>,
     {
         self.set_sample_map(iter.into_iter().collect())
     }
@@ -226,7 +226,7 @@ impl Builder {
     where
         P: AsRef<Path>,
     {
-        let sample_map = SampleMap::from_path(samples_file)?;
+        let sample_map = sample::Map::from_path(samples_file)?;
         self.set_sample_map(sample_map)
     }
 

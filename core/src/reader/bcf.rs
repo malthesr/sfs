@@ -6,7 +6,7 @@ use noodles_bcf as bcf;
 use noodles_vcf as vcf;
 use vcf::record::genotypes::sample::value::genotype::Genotype as VcfGenotype;
 
-use super::{sample_map::Sample, GenotypeReader, GenotypeResult, ReadStatus};
+use super::{GenotypeReader, GenotypeResult, ReadStatus, Sample};
 
 pub struct Reader<R> {
     pub inner: bcf::Reader<R>,
@@ -27,7 +27,12 @@ where
         let string_maps = bcf::header::StringMaps::try_from(&header)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        let samples = header.sample_names().iter().cloned().map(Sample).collect();
+        let samples = header
+            .sample_names()
+            .iter()
+            .cloned()
+            .map(Sample::from)
+            .collect();
 
         Ok(Self {
             inner,
