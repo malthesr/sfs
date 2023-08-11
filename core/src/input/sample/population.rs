@@ -1,3 +1,5 @@
+use std::fmt;
+
 use indexmap::IndexSet;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -14,6 +16,15 @@ where
         match population {
             Some(population) => Self::Named(population.to_string()),
             None => Self::Unnamed,
+        }
+    }
+}
+
+impl fmt::Display for Population {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Population::Named(name) => write!(f, "{name}"),
+            Population::Unnamed => f.write_str("[unnamed]"),
         }
     }
 }

@@ -7,7 +7,8 @@ use clap::{Args, Parser};
 mod runner;
 use runner::Runner;
 use sfs_core::{
-    input::{genotype, site},
+    array::Shape,
+    input::{genotype, sample, site, Sample},
     Input,
 };
 
@@ -63,10 +64,10 @@ struct Samples {
         long = "samples",
         use_value_delimiter = true,
         value_delimiter = ',',
-        value_parser = parse_key_val,
-        value_name = "SAMPLE[=GROUP],...")
+        value_parser = parse_sample_population,
+        value_name = "SAMPLE[=POPULATION],...")
     ]
-    list: Option<Vec<(String, Option<String>)>>,
+    list: Option<Vec<(Sample, sample::Population)>>,
 
     /// Sample subset file.
     ///
@@ -111,45 +112,49 @@ struct Project {
     shape: Option<Vec<usize>>,
 }
 
-fn parse_key_val(s: &str) -> Result<(String, Option<String>), clap::Error> {
+fn parse_sample_population(s: &str) -> Result<(Sample, sample::Population), clap::Error> {
     Ok(s.split_once('=')
-        .map(|(key, val)| (key.to_string(), Some(val.to_string())))
-        .unwrap_or_else(|| (s.to_string(), None)))
+        .map(|(key, val)| (Sample::from(key), sample::Population::from(Some(val))))
+        .unwrap_or_else(|| (Sample::from(s), sample::Population::Unnamed)))
 }
 
 impl Create {
     pub fn run(self) -> Result<(), Error> {
-        let mut builder = site::reader::Builder::default();
-
-        if let Some(samples) = self.samples {
-            builder = match (samples.list, samples.file) {
-                (Some(list), None) => builder.set_samples(list)?,
-                (None, Some(file)) => builder.set_samples_file(file)?,
+        let samples = if let Some(samples) = self.samples {
+            match (samples.list, samples.file) {
+                (Some(list), None) => site::reader::builder::Samples::List(list),
+                (None, Some(path)) => site::reader::builder::Samples::Path(path),
                 _ => unreachable!("checked by clap"),
-            };
-        }
+            }
+        } else {
+            site::reader::builder::Samples::All
+        };
 
-        let mut precision = 0;
+        let precision = self.project.as_ref().map(|_| self.precision).unwrap_or(0);
 
-        if let Some(project) = self.project {
-            precision = self.precision;
-
-            builder = match (project.individuals, project.shape) {
-                (Some(individuals), None) => builder.set_project_individuals(individuals),
-                (None, Some(shape)) => builder.set_project_shape(shape),
+        let project = if let Some(project) = self.project {
+            Some(match (project.individuals, project.shape) {
+                (Some(individuals), None) => {
+                    site::reader::builder::Project::Individuals(individuals)
+                }
+                (None, Some(shape)) => site::reader::builder::Project::Shape(Shape::from(shape)),
                 _ => unreachable!("checked by clap"),
-            };
-        }
+            })
+        } else {
+            None
+        };
 
-        let reader = builder.build(
-            genotype::reader::Builder::default()
-                .set_input(Input::new(self.input)?)
-                .set_threads(self.threads)
-                .build()?,
-        )?;
+        let reader = site::reader::Builder::default()
+            .set_samples(samples)
+            .set_project(project)
+            .build(
+                genotype::reader::Builder::default()
+                    .set_input(Input::new(self.input)?)
+                    .set_threads(self.threads)
+                    .build()?,
+            )?;
 
-        let mut runner = Runner::new(reader, self.strict)?;
-        let sfs = runner.run()?;
+        let sfs = Runner::new(reader, self.strict)?.run()?;
 
         sfs_core::spectrum::io::text::write_spectrum(&mut io::stdout(), &sfs, precision)?;
 
@@ -180,9 +185,15 @@ mod tests {
         assert_eq!(
             args.samples.and_then(|samples| samples.list),
             Some(vec![
-                (String::from("sample0"), Some(String::from("group0"))),
-                (String::from("sample1"), None),
-                (String::from("sample2"), Some(String::from("group2"))),
+                (
+                    Sample::from("sample0"),
+                    sample::Population::from(Some("group0"))
+                ),
+                (Sample::from("sample1"), sample::Population::Unnamed,),
+                (
+                    Sample::from("sample2"),
+                    sample::Population::from(Some("group2"))
+                ),
             ])
         );
     }

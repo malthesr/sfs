@@ -1,8 +1,6 @@
-use std::{
-    collections::HashSet,
-    fmt, io,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashSet, fmt, io, path::PathBuf};
+
+use sample::Sample;
 
 use crate::{
     array::Shape,
@@ -10,23 +8,27 @@ use crate::{
     spectrum::project::{PartialProjection, ProjectionError},
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Builder {
-    sample_map: Option<sample::Map>,
-    project_to: Option<Shape>,
+    samples: Samples,
+    project: Option<Project>,
 }
 
 impl Builder {
     pub fn build(self, reader: genotype::reader::DynReader) -> Result<super::Reader, Error> {
-        let sample_map = if let Some(sample_map) = self.sample_map {
-            sample_map
-        } else {
-            reader
+        let sample_map = match self.samples {
+            Samples::All => reader
                 .samples()
                 .iter()
                 .map(|sample| (sample.as_ref().to_string(), sample::Population::Unnamed))
-                .collect()
+                .collect(),
+            Samples::Path(path) => sample::Map::from_path(path)?,
+            Samples::List(list) => sample::Map::from_iter(list),
         };
+
+        if sample_map.is_empty() {
+            return Err(Error::EmptySamplesMap);
+        }
 
         // All samples in sample map should be in reader samples
         let reader_samples = HashSet::<_>::from_iter(reader.samples());
@@ -39,7 +41,7 @@ impl Builder {
             });
         }
 
-        let projection = if let Some(project_to) = self.project_to {
+        let projection = if let Some(project_to) = self.project.map(Project::shape) {
             let project_from = sample_map.shape();
 
             if project_from.dimensions() != project_to.dimensions() {
@@ -70,41 +72,47 @@ impl Builder {
         Ok(super::Reader::new_unchecked(reader, sample_map, projection))
     }
 
-    pub fn set_project_individuals(self, individuals: Vec<usize>) -> Self {
-        self.set_project_shape(Shape(individuals.into_iter().map(|i| 2 * i + 1).collect()))
-    }
-
-    pub fn set_project_shape<S>(mut self, shape: S) -> Self
-    where
-        S: Into<Shape>,
-    {
-        self.project_to = Some(shape.into());
+    pub fn set_project(mut self, project: Option<Project>) -> Self {
+        self.project = project;
         self
     }
 
-    pub fn set_sample_map(mut self, sample_map: sample::Map) -> Result<Self, Error> {
-        if sample_map.is_empty() {
-            Err(Error::EmptySamplesMap)
-        } else {
-            self.sample_map = Some(sample_map);
-            Ok(self)
+    pub fn set_samples(mut self, samples: Samples) -> Self {
+        self.samples = samples;
+        self
+    }
+}
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self {
+            samples: Samples::All,
+            project: None,
         }
     }
+}
 
-    pub fn set_samples<I>(self, iter: I) -> Result<Self, Error>
-    where
-        I: IntoIterator,
-        sample::Map: FromIterator<I::Item>,
-    {
-        self.set_sample_map(iter.into_iter().collect())
-    }
+#[derive(Debug)]
+pub enum Samples {
+    All,
+    Path(PathBuf),
+    List(Vec<(Sample, sample::Population)>),
+}
 
-    pub fn set_samples_file<P>(self, samples_file: P) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-    {
-        let sample_map = sample::Map::from_path(samples_file)?;
-        self.set_sample_map(sample_map)
+#[derive(Debug)]
+pub enum Project {
+    Individuals(Vec<usize>),
+    Shape(Shape),
+}
+
+impl Project {
+    fn shape(self) -> Shape {
+        match self {
+            Project::Individuals(individuals) => {
+                Shape(individuals.into_iter().map(|i| 2 * i + 1).collect())
+            }
+            Project::Shape(shape) => shape,
+        }
     }
 }
 
