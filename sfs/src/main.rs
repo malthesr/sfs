@@ -18,8 +18,6 @@ use stat::Stat;
 mod view;
 use view::View;
 
-pub(crate) mod utils;
-
 const NAME: &str = env!("CARGO_BIN_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");

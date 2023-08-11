@@ -1,10 +1,15 @@
 use crate::input::{ReadStatus, Sample};
 
+pub mod builder;
+pub use builder::Builder;
+
 pub mod bcf;
 
 pub mod vcf;
 
 use super::Result;
+
+pub type DynReader = Box<dyn Reader>;
 
 pub trait Reader {
     fn current_contig(&self) -> &str;

@@ -4,9 +4,10 @@ use anyhow::Error;
 
 use clap::{Args, Parser, ValueEnum};
 
-use sfs_core::array::{Axis, Shape};
-
-use crate::utils::check_input_xor_stdin;
+use sfs_core::{
+    array::{Axis, Shape},
+    Input,
+};
 
 /// Format, marginalize, project, and convert SFS.
 ///
@@ -143,15 +144,15 @@ impl From<Format> for sfs_core::spectrum::io::Format {
 
 impl View {
     pub fn run(self) -> Result<(), Error> {
-        check_input_xor_stdin(self.path.as_ref())?;
+        let input = Input::new(self.path)?;
 
-        let mut sfs = sfs_core::spectrum::io::read::Builder::default()
-            .read_from_path_or_stdin(self.path.as_ref())?;
+        let mut scs = sfs_core::spectrum::io::read::Builder::default()
+            .read_from_path_or_stdin(input.as_path())?;
 
         if let Some(marginalize) = self.marginalize {
             // If marginalizing, normalize to indices to marginalize away (rather than keep)
             let axes = match (marginalize.keep, marginalize.remove) {
-                (Some(keep), None) => (0..sfs.dimensions())
+                (Some(keep), None) => (0..scs.dimensions())
                     .filter(|i| !keep.contains(i))
                     .collect(),
 
@@ -160,7 +161,7 @@ impl View {
             };
 
             let axes = axes.into_iter().map(Axis).collect::<Vec<_>>();
-            sfs = sfs.marginalize(&axes)?;
+            scs = scs.marginalize(&axes)?;
         }
 
         if let Some(project) = self.project {
@@ -172,13 +173,13 @@ impl View {
                 _ => unreachable!("checked by clap"),
             };
 
-            sfs = sfs.project(shape)?;
+            scs = scs.project(shape)?;
         }
 
         sfs_core::spectrum::io::write::Builder::default()
             .set_precision(self.precision)
             .set_format(sfs_core::spectrum::io::Format::from(self.output_format))
-            .write_to_path_or_stdout(self.output, &sfs)?;
+            .write_to_path_or_stdout(self.output, &scs)?;
 
         Ok(())
     }

@@ -5,6 +5,7 @@
 pub(crate) mod approx;
 
 pub mod input;
+pub use input::Input;
 
 pub mod spectrum;
 pub use spectrum::{Scs, Sfs, Spectrum};

@@ -6,9 +6,10 @@ use clap::{Args, Parser};
 
 mod runner;
 use runner::Runner;
-use sfs_core::input::site;
-
-use crate::utils::check_input_xor_stdin;
+use sfs_core::{
+    input::{genotype, site},
+    Input,
+};
 
 /// Create SFS from VCF/BCF.
 #[derive(Debug, Parser)]
@@ -118,13 +119,7 @@ fn parse_key_val(s: &str) -> Result<(String, Option<String>), clap::Error> {
 
 impl Create {
     pub fn run(self) -> Result<(), Error> {
-        check_input_xor_stdin(self.input.as_ref())?;
-
-        let mut builder = site::reader::Builder::default().set_threads(self.threads);
-
-        if let Some(path) = self.input.to_owned() {
-            builder = builder.set_path(path);
-        }
+        let mut builder = site::reader::Builder::default();
 
         if let Some(samples) = self.samples {
             builder = match (samples.list, samples.file) {
@@ -146,7 +141,12 @@ impl Create {
             };
         }
 
-        let reader = builder.build()?;
+        let reader = builder.build(
+            genotype::reader::Builder::default()
+                .set_input(Input::new(self.input)?)
+                .set_threads(self.threads)
+                .build()?,
+        )?;
 
         let mut runner = Runner::new(reader, self.strict)?;
         let sfs = runner.run()?;

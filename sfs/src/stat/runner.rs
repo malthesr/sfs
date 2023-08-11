@@ -2,7 +2,7 @@ use std::{fmt, io};
 
 use anyhow::{anyhow, Error};
 
-use sfs_core::Scs;
+use sfs_core::{Input, Scs};
 
 use super::{Stat, Statistic};
 
@@ -82,12 +82,14 @@ where
     }
 }
 
-impl TryFrom<&Stat> for Runner<io::StdoutLock<'static>> {
+impl TryFrom<Stat> for Runner<io::StdoutLock<'static>> {
     type Error = Error;
 
-    fn try_from(args: &Stat) -> Result<Self, Self::Error> {
+    fn try_from(args: Stat) -> Result<Self, Self::Error> {
+        let input = Input::new(args.path)?;
+
         let scs = sfs_core::spectrum::io::read::Builder::default()
-            .read_from_path_or_stdin(args.path.as_ref())?;
+            .read_from_path_or_stdin(input.as_path())?;
 
         let statistics = match (&args.precision[..], &args.statistics[..]) {
             (&[precision], statistics) => statistics

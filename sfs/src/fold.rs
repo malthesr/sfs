@@ -4,7 +4,7 @@ use anyhow::Error;
 
 use clap::{Parser, ValueEnum};
 
-use crate::utils::check_input_xor_stdin;
+use sfs_core::Input;
 
 /// Fold SFS.
 #[derive(Debug, Parser)]
@@ -60,10 +60,10 @@ impl From<Fill> for f64 {
 
 impl Fold {
     pub fn run(self) -> Result<(), Error> {
-        check_input_xor_stdin(self.path.as_ref())?;
+        let input = Input::new(self.path)?;
 
         let mut scs = sfs_core::spectrum::io::read::Builder::default()
-            .read_from_path_or_stdin(self.path.as_ref())?;
+            .read_from_path_or_stdin(input.as_path())?;
 
         scs = scs.fold().into_spectrum(f64::from(self.fill));
 
