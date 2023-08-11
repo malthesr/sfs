@@ -1,12 +1,15 @@
 use anyhow::{anyhow, Error};
 
 use sfs_core::{
-    reader::{ReadStatus, Reader, Site},
+    reader::{
+        site::{self, Site},
+        ReadStatus,
+    },
     Scs,
 };
 
 pub struct Runner {
-    reader: Reader,
+    reader: site::Reader,
     strict: bool,
     sites: usize,
     skipped: usize,
@@ -57,7 +60,7 @@ impl Runner {
         }
     }
 
-    pub fn new(reader: Reader, strict: bool) -> Result<Self, Error> {
+    pub fn new(reader: site::Reader, strict: bool) -> Result<Self, Error> {
         Ok(Self {
             reader,
             strict,

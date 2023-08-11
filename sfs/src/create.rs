@@ -6,7 +6,7 @@ use clap::{Args, Parser};
 
 mod runner;
 use runner::Runner;
-use sfs_core::reader;
+use sfs_core::reader::site;
 
 use crate::utils::check_input_xor_stdin;
 
@@ -120,7 +120,7 @@ impl Create {
     pub fn run(self) -> Result<(), Error> {
         check_input_xor_stdin(self.input.as_ref())?;
 
-        let mut builder = reader::Builder::default().set_threads(self.threads);
+        let mut builder = site::reader::Builder::default().set_threads(self.threads);
 
         if let Some(path) = self.input.to_owned() {
             builder = builder.set_path(path);
