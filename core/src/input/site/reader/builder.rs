@@ -8,7 +8,7 @@ use crate::{
     spectrum::project::{PartialProjection, ProjectionError},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Builder {
     samples: Option<Option<Samples>>,
     project: Option<Option<Project>>,
@@ -77,15 +77,6 @@ impl Builder {
     pub fn set_samples(mut self, samples: Option<Samples>) -> Self {
         self.samples = Some(samples);
         self
-    }
-}
-
-impl Default for Builder {
-    fn default() -> Self {
-        Self {
-            samples: None,
-            project: None,
-        }
     }
 }
 
