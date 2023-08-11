@@ -1,1 +1,6 @@
-number of precision specifiers must equal one or the number of statistics (found 2 precision specifiers and 3 statistics)
+error: number of precision specifiers must equal one or the number of statistics (found 2 precision specifiers and 3 statistics)
+
+Usage: sfs [OPTIONS] --statistics <STAT,...> [PATH]
+
+For more information, try '--help'.
+

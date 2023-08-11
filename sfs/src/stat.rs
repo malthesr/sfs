@@ -2,14 +2,20 @@ use std::{fmt, path::PathBuf};
 
 use anyhow::Error;
 
-use clap::{Parser, ValueEnum};
-use sfs_core::spectrum::{
-    stat::{Fst, Heterozygosity, King, F2, R0, R1},
-    Scs,
+use clap::{CommandFactory, Parser, ValueEnum};
+use sfs_core::{
+    spectrum::{
+        self,
+        stat::{Fst, Heterozygosity, King, F2, R0, R1},
+        Scs,
+    },
+    Input,
 };
 
 mod runner;
 use runner::Runner;
+
+use self::runner::StatisticWithOptions;
 
 /// Calculate statistics from SFS.
 #[derive(Debug, Parser)]
@@ -19,7 +25,7 @@ pub struct Stat {
     /// The input SFS can be provided here or read from stdin. The SFS will be normalised as
     /// required for particular statistics, so the input SFS does not need to be normalised.
     #[clap(value_parser, value_name = "PATH")]
-    pub path: Option<PathBuf>,
+    pub input: Option<PathBuf>,
 
     /// Delimiter between statistics.
     #[clap(short = 'd', long, default_value_t = ',', value_name = "CHAR")]
@@ -115,7 +121,37 @@ impl fmt::Display for Statistic {
 
 impl Stat {
     pub fn run(self) -> Result<(), Error> {
-        let mut runner = Runner::try_from(self)?;
+        let scs = spectrum::io::read::Builder::default()
+            .set_input(Input::new(self.input)?)
+            .read()?;
+
+        let statistics = match (&self.precision[..], &self.statistics[..]) {
+            (&[precision], statistics) => statistics
+                .iter()
+                .map(|&s| StatisticWithOptions::new(s, precision))
+                .collect::<Vec<_>>(),
+            (precisions, statistics) if precisions.len() == statistics.len() => statistics
+                .iter()
+                .zip(precisions.iter())
+                .map(|(&s, &p)| StatisticWithOptions::new(s, p))
+                .collect::<Vec<_>>(),
+            (precisions, statistics) => {
+                return Err(Stat::command()
+                    .error(
+                        clap::error::ErrorKind::ValueValidation,
+                        format!(
+                            "number of precision specifiers must equal one \
+                                or the number of statistics \
+                                (found {} precision specifiers and {} statistics)",
+                            precisions.len(),
+                            statistics.len()
+                        ),
+                    )
+                    .into());
+            }
+        };
+
+        let mut runner = Runner::new(scs, statistics, self.header, self.delimiter);
         runner.run()
     }
 }

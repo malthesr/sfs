@@ -6,7 +6,7 @@ use clap::{Args, Parser, ValueEnum};
 
 use sfs_core::{
     array::{Axis, Shape},
-    Input,
+    spectrum, Input,
 };
 
 /// Format, marginalize, project, and convert SFS.
@@ -20,7 +20,7 @@ pub struct View {
     ///
     /// The input SFS can be provided here or read from stdin in any of the supported formats.
     #[clap(value_parser, value_name = "PATH")]
-    pub path: Option<PathBuf>,
+    pub input: Option<PathBuf>,
 
     /// Output path.
     ///
@@ -144,10 +144,9 @@ impl From<Format> for sfs_core::spectrum::io::Format {
 
 impl View {
     pub fn run(self) -> Result<(), Error> {
-        let input = Input::new(self.path)?;
-
-        let mut scs = sfs_core::spectrum::io::read::Builder::default()
-            .read_from_path_or_stdin(input.as_path())?;
+        let mut scs = spectrum::io::read::Builder::default()
+            .set_input(Input::new(self.input)?)
+            .read()?;
 
         if let Some(marginalize) = self.marginalize {
             // If marginalizing, normalize to indices to marginalize away (rather than keep)
@@ -176,7 +175,7 @@ impl View {
             scs = scs.project(shape)?;
         }
 
-        sfs_core::spectrum::io::write::Builder::default()
+        spectrum::io::write::Builder::default()
             .set_precision(self.precision)
             .set_format(sfs_core::spectrum::io::Format::from(self.output_format))
             .write_to_path_or_stdout(self.output, &scs)?;

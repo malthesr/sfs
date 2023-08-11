@@ -1,25 +1,27 @@
 //! Utilities for reading SCS.
 
-use std::{fs, io, path::Path};
+use std::io::{self, Read};
 
-use crate::{Array, Scs};
+use crate::{Array, Input, Scs};
 
 use super::{text, Format};
 
 /// A builder to read an SCS.
 #[derive(Debug, Default)]
 pub struct Builder {
+    input: Option<Input>,
     format: Option<Format>,
 }
 
 impl Builder {
     /// Read SCS from reader.
-    pub fn read<R>(self, reader: &mut R) -> io::Result<Scs>
-    where
-        R: io::Read,
-    {
+    pub fn read(self) -> io::Result<Scs> {
         let mut raw = Vec::new();
-        reader.read_to_end(&mut raw)?;
+
+        _ = match self.input.unwrap_or(Input::Stdin).open()? {
+            crate::input::Reader::File(mut reader) => reader.read_to_end(&mut raw)?,
+            crate::input::Reader::Stdin(mut reader) => reader.read_to_end(&mut raw)?,
+        };
 
         let format = self.format.or_else(|| Format::detect(&raw));
 
@@ -31,30 +33,12 @@ impl Builder {
         }
     }
 
-    /// Read SCS from path.
-    pub fn read_from_path<P>(self, path: P) -> io::Result<Scs>
-    where
-        P: AsRef<Path>,
-    {
-        self.read(&mut fs::File::open(path)?)
-    }
-
-    /// Read SCS from path or stdin.
+    /// Set input source.
     ///
-    /// If the provided path is `None`, read from stdin.
-    pub fn read_from_path_or_stdin<P>(self, path: Option<P>) -> io::Result<Scs>
-    where
-        P: AsRef<Path>,
-    {
-        match path {
-            Some(path) => self.read_from_path(path),
-            None => self.read_from_stdin(),
-        }
-    }
-
-    /// Read SCS from stdin.
-    pub fn read_from_stdin(self) -> io::Result<Scs> {
-        self.read(&mut io::stdin().lock())
+    /// If unset, the input source will default to stdin.
+    pub fn set_input(mut self, input: Input) -> Self {
+        self.input = Some(input);
+        self
     }
 
     /// Set format to read.

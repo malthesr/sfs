@@ -2,9 +2,9 @@ use std::{fmt, io};
 
 use anyhow::{anyhow, Error};
 
-use sfs_core::{Input, Scs};
+use sfs_core::Scs;
 
-use super::{Stat, Statistic};
+use super::Statistic;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StatisticWithOptions {
@@ -28,6 +28,23 @@ pub struct Runner<W> {
     statistics: Vec<StatisticWithOptions>,
     header: bool,
     delimiter: char,
+}
+
+impl Runner<io::StdoutLock<'static>> {
+    pub fn new(
+        scs: Scs,
+        statistics: Vec<StatisticWithOptions>,
+        header: bool,
+        delimiter: char,
+    ) -> Self {
+        Self {
+            writer: io::stdout().lock(),
+            scs,
+            statistics,
+            header,
+            delimiter,
+        }
+    }
 }
 
 impl<W> Runner<W>
@@ -79,43 +96,5 @@ where
         writeln!(self.writer)?;
 
         Ok(())
-    }
-}
-
-impl TryFrom<Stat> for Runner<io::StdoutLock<'static>> {
-    type Error = Error;
-
-    fn try_from(args: Stat) -> Result<Self, Self::Error> {
-        let input = Input::new(args.path)?;
-
-        let scs = sfs_core::spectrum::io::read::Builder::default()
-            .read_from_path_or_stdin(input.as_path())?;
-
-        let statistics = match (&args.precision[..], &args.statistics[..]) {
-            (&[precision], statistics) => statistics
-                .iter()
-                .map(|&s| StatisticWithOptions::new(s, precision))
-                .collect::<Vec<_>>(),
-            (precisions, statistics) if precisions.len() == statistics.len() => statistics
-                .iter()
-                .zip(precisions.iter())
-                .map(|(&s, &p)| StatisticWithOptions::new(s, p))
-                .collect::<Vec<_>>(),
-            (precisions, statistics) => Err(anyhow!(
-                "number of precision specifiers must equal one \
-                    or the number of statistics \
-                    (found {} precision specifiers and {} statistics)",
-                precisions.len(),
-                statistics.len()
-            ))?,
-        };
-
-        Ok(Self {
-            writer: io::stdout().lock(),
-            scs,
-            statistics,
-            header: args.header,
-            delimiter: args.delimiter,
-        })
     }
 }

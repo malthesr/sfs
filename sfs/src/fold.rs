@@ -4,7 +4,7 @@ use anyhow::Error;
 
 use clap::{Parser, ValueEnum};
 
-use sfs_core::Input;
+use sfs_core::{spectrum, Input};
 
 /// Fold SFS.
 #[derive(Debug, Parser)]
@@ -13,7 +13,7 @@ pub struct Fold {
     ///
     /// The input SFS can be provided here or read from stdin in any of the supported formats.
     #[clap(value_parser, value_name = "PATH")]
-    pub path: Option<PathBuf>,
+    pub input: Option<PathBuf>,
 
     /// Fill value to use when folding.
     ///
@@ -60,14 +60,13 @@ impl From<Fill> for f64 {
 
 impl Fold {
     pub fn run(self) -> Result<(), Error> {
-        let input = Input::new(self.path)?;
-
-        let mut scs = sfs_core::spectrum::io::read::Builder::default()
-            .read_from_path_or_stdin(input.as_path())?;
+        let mut scs = spectrum::io::read::Builder::default()
+            .set_input(Input::new(self.input)?)
+            .read()?;
 
         scs = scs.fold().into_spectrum(f64::from(self.fill));
 
-        sfs_core::spectrum::io::write::Builder::default()
+        spectrum::io::write::Builder::default()
             .set_precision(self.precision)
             .write_to_path_or_stdout(self.output, &scs)?;
 
