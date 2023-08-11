@@ -1,5 +1,8 @@
 use std::fmt;
 
+pub mod reader;
+pub use reader::Reader;
+
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum Genotype {
@@ -20,19 +23,19 @@ impl Genotype {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum GenotypeResult {
+pub enum Result {
     Genotype(Genotype),
-    Skipped(GenotypeSkipped),
-    Error(GenotypeError),
+    Skipped(Skipped),
+    Error(Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum GenotypeSkipped {
+pub enum Skipped {
     Missing,
     Multiallelic,
 }
 
-impl GenotypeSkipped {
+impl Skipped {
     pub fn reason(&self) -> &'static str {
         match self {
             Self::Missing => "missing",
@@ -42,16 +45,16 @@ impl GenotypeSkipped {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum GenotypeError {
+pub enum Error {
     PloidyError,
 }
 
-impl fmt::Display for GenotypeError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GenotypeError::PloidyError => f.write_str("genotype not diploid"),
+            Error::PloidyError => f.write_str("genotype not diploid"),
         }
     }
 }
 
-impl std::error::Error for GenotypeError {}
+impl std::error::Error for Error {}

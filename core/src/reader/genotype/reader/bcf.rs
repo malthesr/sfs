@@ -6,7 +6,7 @@ use noodles_bcf as bcf;
 use noodles_vcf as vcf;
 use vcf::record::genotypes::sample::value::genotype::Genotype as VcfGenotype;
 
-use super::{GenotypeReader, GenotypeResult, ReadStatus, Sample};
+use crate::reader::{genotype, ReadStatus, Sample};
 
 pub struct Reader<R> {
     pub inner: bcf::Reader<R>,
@@ -67,7 +67,7 @@ where
     }
 }
 
-impl<R> GenotypeReader for Reader<R>
+impl<R> super::Reader for Reader<R>
 where
     R: io::Read,
 {
@@ -82,11 +82,11 @@ where
         self.buf.position().into()
     }
 
-    fn read_genotypes(&mut self) -> ReadStatus<Vec<GenotypeResult>> {
+    fn read_genotypes(&mut self) -> ReadStatus<Vec<genotype::Result>> {
         self.read_genotypes().map(|vcf_genotypes| {
             vcf_genotypes
                 .into_iter()
-                .map(GenotypeResult::from)
+                .map(genotype::Result::from)
                 .collect()
         })
     }

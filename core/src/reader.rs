@@ -3,14 +3,11 @@ use std::io;
 mod builder;
 pub use builder::{Builder, BuilderError, Format};
 
-mod genotype;
-pub use genotype::{Genotype, GenotypeError, GenotypeResult, GenotypeSkipped};
+pub mod genotype;
+pub use genotype::Genotype;
 
 pub mod sample;
 pub use sample::Sample;
-
-pub mod bcf;
-pub mod vcf;
 
 use crate::{
     spectrum::{
@@ -40,16 +37,6 @@ impl<T> ReadStatus<T> {
     }
 }
 
-trait GenotypeReader {
-    fn current_contig(&self) -> &str;
-
-    fn current_position(&self) -> usize;
-
-    fn read_genotypes(&mut self) -> ReadStatus<Vec<GenotypeResult>>;
-
-    fn samples(&self) -> &[Sample];
-}
-
 pub enum Site<'a> {
     Standard(&'a [usize]),
     Projected(Projected<'a>),
@@ -57,12 +44,12 @@ pub enum Site<'a> {
 }
 
 pub struct Reader {
-    reader: Box<dyn GenotypeReader>,
+    reader: Box<dyn genotype::Reader>,
     sample_map: sample::Map,
     counts: Count,
     totals: Count,
     projection: Option<PartialProjection>,
-    skipped_samples: Vec<(sample::Id, GenotypeSkipped)>,
+    skipped_samples: Vec<(sample::Id, genotype::Skipped)>,
 }
 
 impl Reader {
@@ -84,14 +71,14 @@ impl Reader {
         self.reader.current_position()
     }
 
-    pub fn current_skipped_samples(&self) -> impl Iterator<Item = (&Sample, &GenotypeSkipped)> {
+    pub fn current_skipped_samples(&self) -> impl Iterator<Item = (&Sample, &genotype::Skipped)> {
         self.skipped_samples
             .iter()
             .map(|(i, s)| (self.sample_map.get_sample(*i).unwrap(), s))
     }
 
     fn new_unchecked(
-        reader: Box<dyn GenotypeReader>,
+        reader: Box<dyn genotype::Reader>,
         sample_map: sample::Map,
         projection: Option<PartialProjection>,
     ) -> Self {
@@ -122,15 +109,15 @@ impl Reader {
             };
 
             match genotype {
-                GenotypeResult::Genotype(genotype) => {
+                genotype::Result::Genotype(genotype) => {
                     self.counts[population_id] += genotype as u8 as usize;
                     self.totals[population_id] += 2;
                 }
-                GenotypeResult::Skipped(skip) => {
+                genotype::Result::Skipped(skip) => {
                     self.skipped_samples
                         .push((self.sample_map.get_sample_id(sample).unwrap(), skip));
                 }
-                GenotypeResult::Error(e) => {
+                genotype::Result::Error(e) => {
                     return ReadStatus::Error(io::Error::new(io::ErrorKind::InvalidData, e));
                 }
             }

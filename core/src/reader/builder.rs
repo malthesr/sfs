@@ -17,10 +17,11 @@ use crate::{
 };
 
 use super::{
-    bcf::Reader as BcfReader,
+    genotype::reader::{
+        bcf::Reader as BcfReader, vcf::Reader as VcfReader, Reader as GenotypeReader,
+    },
     sample::{self, Population},
-    vcf::Reader as VcfReader,
-    GenotypeReader, Reader, Sample,
+    Reader, Sample,
 };
 
 #[derive(Debug)]
