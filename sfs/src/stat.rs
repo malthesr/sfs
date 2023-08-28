@@ -65,6 +65,8 @@ pub struct Stat {
 
 #[derive(ValueEnum, Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Statistic {
+    /// Fu and Li's D statistic. 1D SFS only. See Durrett (2008).
+    DFuLi,
     /// Tajima's D statistic. 1D SFS only. See Durrett (2008).
     DTajima,
     /// The f₂-statistic. 2D SFS only. See Peter (2016).
@@ -75,12 +77,14 @@ pub enum Statistic {
     /// The f₄(A, B; C, D)-statistic, where A, B, C, D is in the order of the populations in the SFS.
     /// 4D SFS only. See Peter (2016).
     F4,
-    /// Hudson's estimator of Fst, as ratio of averages. 2D SFS only. See Bhatia et al. (2013).
+    /// Hudson's estimator of Fst, as ratio of averages. 2D SFS only.
+    /// See Bhatia et al. (2013).
     Fst,
-    /// Heterozygosity. Shape 3 1D SFS only.
-    Het,
     /// Average pairwise differences. 1D SFS only.
     Pi,
+    /// Average pairwise differences between two populations, also known as Dxy. 2D SFS only.
+    /// See Nei and Li (1979), Cruickshank and Hahn (2014).
+    PiXY,
     /// The King kinship statistic. Shape 3x3 2D SFS only. See Waples et al. (2019).
     King,
     /// The R0 kinship statistic. Shape 3x3 2D SFS only. See Waples et al. (2019).
@@ -98,14 +102,15 @@ pub enum Statistic {
 impl Statistic {
     pub fn calculate(self, scs: &Scs) -> Result<f64, Error> {
         Ok(match self {
+            Statistic::DFuLi => scs.d_fu_li()?,
+            Statistic::DTajima => scs.d_tajima()?,
             Statistic::F2 => scs.clone().into_normalized().f2()?,
             Statistic::F3 => scs.clone().into_normalized().f3()?,
             Statistic::F4 => scs.clone().into_normalized().f4()?,
             Statistic::Fst => scs.clone().into_normalized().fst()?,
-            Statistic::DTajima => scs.d_tajima()?,
-            Statistic::Het => scs.clone().into_normalized().heterozygosity()?,
             Statistic::King => scs.king()?,
             Statistic::Pi => scs.pi()?,
+            Statistic::PiXY => scs.pi_xy()?,
             Statistic::R0 => scs.r0()?,
             Statistic::R1 => scs.r1()?,
             Statistic::S => scs.segregating_sites(),
@@ -116,14 +121,15 @@ impl Statistic {
 
     pub fn header_name(&self) -> &'static str {
         match self {
+            Statistic::DFuLi => "d_fu_li",
             Statistic::DTajima => "d_tajima",
             Statistic::F2 => "f2",
             Statistic::F3 => "f3",
             Statistic::F4 => "f4",
             Statistic::Fst => "fst",
-            Statistic::Het => "heterozygosity",
             Statistic::King => "king",
             Statistic::Pi => "pi",
+            Statistic::PiXY => "pi_xy",
             Statistic::R0 => "r0",
             Statistic::R1 => "r1",
             Statistic::S => "segregating_sites",

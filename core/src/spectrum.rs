@@ -151,6 +151,23 @@ impl<S: State> Spectrum<S> {
         spectrum
     }
 
+    pub fn normalize(&mut self) {
+        let sum = self.sum();
+        self.array.iter_mut().for_each(|x| *x /= sum);
+    }
+
+    pub fn pi(&self) -> Result<f64, StatisticError> {
+        stat::Pi::from_spectrum(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
+    }
+
+    pub fn pi_xy(&self) -> Result<f64, StatisticError> {
+        stat::PiXY::from_spectrum(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
+    }
+
     pub fn project<T>(&self, project_to: T) -> Result<Self, ProjectionError>
     where
         T: Into<Shape>,
@@ -169,17 +186,6 @@ impl<S: State> Spectrum<S> {
         Ok(new.into_state_unchecked())
     }
 
-    pub fn normalize(&mut self) {
-        let sum = self.sum();
-        self.array.iter_mut().for_each(|x| *x /= sum);
-    }
-
-    pub fn pi(&self) -> Result<f64, StatisticError> {
-        stat::Pi::from_spectrum(self)
-            .map(|x| x.0)
-            .map_err(Into::into)
-    }
-
     pub fn r0(&self) -> Result<f64, StatisticError> {
         stat::R0::from_spectrum(self)
             .map(|x| x.0)
@@ -192,18 +198,18 @@ impl<S: State> Spectrum<S> {
             .map_err(Into::into)
     }
 
-    pub fn theta_watterson(&self) -> Result<f64, StatisticError> {
-        stat::Theta::<stat::theta::Watterson>::from_spectrum(self)
-            .map(|x| x.0)
-            .map_err(Into::into)
-    }
-
     pub fn shape(&self) -> &Shape {
         self.array.shape()
     }
 
     pub fn sum(&self) -> f64 {
         self.array.iter().sum::<f64>()
+    }
+
+    pub fn theta_watterson(&self) -> Result<f64, StatisticError> {
+        stat::Theta::<stat::theta::Watterson>::from_spectrum(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
     }
 }
 
@@ -268,12 +274,6 @@ impl Sfs {
 
     pub fn fst(&self) -> Result<f64, StatisticError> {
         stat::Fst::from_sfs(self).map(|x| x.0).map_err(Into::into)
-    }
-
-    pub fn heterozygosity(&self) -> Result<f64, StatisticError> {
-        stat::Heterozygosity::from_sfs(self)
-            .map(|x| x.0)
-            .map_err(Into::into)
     }
 }
 

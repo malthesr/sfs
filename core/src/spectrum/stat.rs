@@ -11,6 +11,46 @@ use super::{Sfs, Shape, Spectrum, State};
 pub type Pi = Theta<theta::Tajima>;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+pub struct PiXY(pub f64);
+
+impl PiXY {
+    pub fn from_spectrum<S: State>(spectrum: &Spectrum<S>) -> Result<Self, DimensionError> {
+        if spectrum.dimensions() == 2 {
+            Ok(Self::from_spectrum_unchecked(spectrum))
+        } else {
+            Err(DimensionError {
+                expected: 2,
+                actual: spectrum.dimensions(),
+            })
+        }
+    }
+
+    fn from_spectrum_unchecked<S: State>(spectrum: &Spectrum<S>) -> Self {
+        let (n1, n2) = if let &[n1, n2] = spectrum.shape().as_ref() {
+            (n1 - 1, n2 - 1)
+        } else {
+            panic!("dimensions do not fit");
+        };
+
+        let num = (0..=n1)
+            .flat_map(|m1| (0..=n2).map(move |m2| (m1, m2)))
+            .take(spectrum.elements() - 1)
+            .skip(1)
+            // .inspect(|(m1, m2)| eprintln!("{m1}, {m2}"))
+            .map(|(m1, m2)| {
+                let p1 = m1 * (n2 - m2);
+                let p2 = m2 * (n1 - m1);
+                spectrum[[m1, m2]] * ((p1 + p2) as f64)
+            })
+            .sum::<f64>();
+
+        let denom = (n1 * n2) as f64;
+
+        Self(num / denom)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct F2(pub f64);
 
 impl F2 {
@@ -205,26 +245,6 @@ impl R1 {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-pub struct Heterozygosity(pub f64);
-
-impl Heterozygosity {
-    pub fn from_sfs(sfs: &Sfs) -> Result<Self, ShapeError> {
-        if sfs.shape().0 == [3] {
-            Ok(Self::from_sfs_unchecked(sfs))
-        } else {
-            Err(ShapeError {
-                expected: Shape(vec![3]),
-                actual: sfs.shape().clone(),
-            })
-        }
-    }
-
-    fn from_sfs_unchecked(sfs: &Sfs) -> Self {
-        Self(sfs[[1]])
-    }
-}
-
 #[derive(Debug)]
 pub enum StatisticError {
     DimensionError(DimensionError),
@@ -289,3 +309,20 @@ impl fmt::Display for ShapeError {
 }
 
 impl std::error::Error for ShapeError {}
+
+#[cfg(test)]
+mod tests {
+    use crate::Scs;
+
+    #[test]
+    fn test_pi_xy() {
+        let data = vec![
+            0.983094, 0.000819, 0.000298, 0.001926, 0.000439, 0.000266, 0.000753, 0.000380,
+            0.000330, 0.000256, 0.000217, 0.000398, 0.000102, 0.000166, 0.010558,
+        ];
+
+        let sfs = Scs::new(data, [5, 3]).unwrap();
+
+        assert_approx_eq!(sfs.pi_xy().unwrap(), 0.002925);
+    }
+}
