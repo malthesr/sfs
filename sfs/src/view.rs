@@ -11,9 +11,9 @@ use sfs_core::{
 
 /// Format, marginalize, project, and convert SFS.
 ///
-/// Note that the order of operations matter: marginalization occurs before projection. To control
-/// the order of operations differently, chain together multiple commands by piping in the desired
-/// order.
+/// Note that the order of operations matter, and the order is: marginalization > projection >
+/// mask monomorphic > normalization. To control the order of operations differently, chain
+/// together multiple commands by piping in the desired order.
 #[derive(Debug, Parser)]
 pub struct View {
     /// Input SFS.
@@ -34,6 +34,14 @@ pub struct View {
 
     #[command(flatten)]
     marginalize: Option<Marginalize>,
+
+    /// Set monomorphic sites zero.
+    #[clap(long)]
+    mask_monomorphic: bool,
+
+    /// Normalize SFS.
+    #[clap(short = 'n', long)]
+    normalize: bool,
 
     #[command(flatten)]
     project: Option<Project>,
@@ -173,6 +181,16 @@ impl View {
             };
 
             scs = scs.project(shape)?;
+        }
+
+        if self.mask_monomorphic {
+            let raw = scs.inner_mut().as_mut_slice();
+            raw[0] = 0.0;
+            raw[raw.len() - 1] = 0.0;
+        }
+
+        if self.normalize {
+            scs.normalize();
         }
 
         spectrum::io::write::Builder::default()
