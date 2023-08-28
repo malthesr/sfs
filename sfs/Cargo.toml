@@ -11,7 +11,7 @@ repository = "https://github.com/malthesr/sfs"
 
 [dependencies]
 anyhow = "1.0"
-clap = { version = "4.3", features = ["derive"] }
+clap = { version = "4.4", features = ["derive"] }
 env_logger = { version = "0.10", default-features = false }
 log = "0.4"
 sfs-core = { path = "../core" }
