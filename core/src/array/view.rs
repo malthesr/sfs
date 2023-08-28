@@ -15,11 +15,7 @@ pub struct View<'a, T> {
 
 impl<'a, T> Clone for View<'a, T> {
     fn clone(&self) -> Self {
-        Self {
-            data: self.data,
-            shape: self.shape,
-            strides: self.strides,
-        }
+        *self
     }
 }
 

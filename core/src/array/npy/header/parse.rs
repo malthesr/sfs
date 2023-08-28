@@ -160,14 +160,14 @@ mod tests {
     fn test_parse_bool() {
         assert_eq!(parse_bool("True"), Ok(("", true)));
         assert_eq!(parse_bool("False"), Ok(("", false)));
-        assert!(matches!(parse_bool("true"), Err(_)));
+        assert!(parse_bool("true").is_err());
     }
 
     #[test]
     fn test_parse_string() {
         assert_eq!(parse_string("'foo'"), Ok(("", "foo")));
         assert_eq!(parse_string("\"bar\""), Ok(("", "bar")));
-        assert!(matches!(parse_string("\"baz'"), Err(_)));
+        assert!(parse_string("\"baz'").is_err());
         assert_eq!(parse_string("'foo'bar"), Ok(("bar", "foo")));
     }
 

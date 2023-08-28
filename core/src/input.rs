@@ -41,7 +41,7 @@ pub enum Input {
 }
 
 impl Input {
-    pub const ENV_KEY_DISABLE_CHECK: &str = "SFS_ALLOW_STDIN";
+    pub const ENV_KEY_DISABLE_CHECK: &'static str = "SFS_ALLOW_STDIN";
 
     pub fn new(input: Option<PathBuf>) -> io::Result<Self> {
         let check = env::var(Self::ENV_KEY_DISABLE_CHECK).is_err();
