@@ -72,8 +72,9 @@ impl Reader {
         };
 
         for (sample, genotype) in self.reader.samples().iter().zip(genotypes) {
-            let Some(population_id) = self.sample_map.get_population_id(sample).map(usize::from) else {
-                continue
+            let Some(population_id) = self.sample_map.get_population_id(sample).map(usize::from)
+            else {
+                continue;
             };
 
             match genotype {
