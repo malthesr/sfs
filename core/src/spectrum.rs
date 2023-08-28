@@ -258,6 +258,14 @@ impl Sfs {
         stat::F2::from_sfs(self).map(|x| x.0).map_err(Into::into)
     }
 
+    pub fn f3(&self) -> Result<f64, StatisticError> {
+        stat::F3::from_sfs(self).map(|x| x.0).map_err(Into::into)
+    }
+
+    pub fn f4(&self) -> Result<f64, StatisticError> {
+        stat::F4::from_sfs(self).map(|x| x.0).map_err(Into::into)
+    }
+
     pub fn fst(&self) -> Result<f64, StatisticError> {
         stat::Fst::from_sfs(self).map(|x| x.0).map_err(Into::into)
     }

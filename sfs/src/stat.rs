@@ -69,6 +69,12 @@ pub enum Statistic {
     DTajima,
     /// The f₂-statistic. 2D SFS only. See Peter (2016).
     F2,
+    /// The f₃(A; B, C)-statistic, where A, B, C is in the order of the populations in the SFS.
+    /// 3D SFS only. See Peter (2016).
+    F3,
+    /// The f₄(A, B; C, D)-statistic, where A, B, C, D is in the order of the populations in the SFS.
+    /// 4D SFS only. See Peter (2016).
+    F4,
     /// Hudson's estimator of Fst, as ratio of averages. 2D SFS only. See Bhatia et al. (2013).
     Fst,
     /// Heterozygosity. Shape 3 1D SFS only.
@@ -93,6 +99,8 @@ impl Statistic {
     pub fn calculate(self, scs: &Scs) -> Result<f64, Error> {
         Ok(match self {
             Statistic::F2 => scs.clone().into_normalized().f2()?,
+            Statistic::F3 => scs.clone().into_normalized().f3()?,
+            Statistic::F4 => scs.clone().into_normalized().f4()?,
             Statistic::Fst => scs.clone().into_normalized().fst()?,
             Statistic::DTajima => scs.d_tajima()?,
             Statistic::Het => scs.clone().into_normalized().heterozygosity()?,
@@ -110,6 +118,8 @@ impl Statistic {
         match self {
             Statistic::DTajima => "d_tajima",
             Statistic::F2 => "f2",
+            Statistic::F3 => "f3",
+            Statistic::F4 => "f4",
             Statistic::Fst => "fst",
             Statistic::Het => "heterozygosity",
             Statistic::King => "king",

@@ -37,6 +37,58 @@ impl F2 {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+pub struct F3(pub f64);
+
+impl F3 {
+    pub fn from_sfs(sfs: &Sfs) -> Result<Self, DimensionError> {
+        if sfs.dimensions() == 3 {
+            Ok(Self::from_sfs_unchecked(sfs))
+        } else {
+            Err(DimensionError {
+                expected: 3,
+                actual: sfs.dimensions(),
+            })
+        }
+    }
+
+    fn from_sfs_unchecked(sfs: &Sfs) -> Self {
+        Self(
+            sfs.array
+                .iter()
+                .zip(sfs.iter_frequencies())
+                .map(|(v, fs)| v * (fs[0] - fs[1]) * (fs[0] - fs[2]))
+                .sum(),
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+pub struct F4(pub f64);
+
+impl F4 {
+    pub fn from_sfs(sfs: &Sfs) -> Result<Self, DimensionError> {
+        if sfs.dimensions() == 4 {
+            Ok(Self::from_sfs_unchecked(sfs))
+        } else {
+            Err(DimensionError {
+                expected: 4,
+                actual: sfs.dimensions(),
+            })
+        }
+    }
+
+    fn from_sfs_unchecked(sfs: &Sfs) -> Self {
+        Self(
+            sfs.array
+                .iter()
+                .zip(sfs.iter_frequencies())
+                .map(|(v, fs)| v * (fs[0] - fs[1]) * (fs[2] - fs[3]))
+                .sum(),
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Fst(pub f64);
 
 impl Fst {
