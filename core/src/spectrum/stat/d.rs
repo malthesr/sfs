@@ -37,7 +37,7 @@ impl private::Statistic for FuLi {
     fn variance(scs: &Scs) -> f64 {
         // Notation from Fu and Li (1993), see also Durrett (2008), p. 67, though we use thetas
         // in the numerator here, so there's an extra factor 1/a in the denominator
-        let n = scs.elements();
+        let n = scs.elements() - 1;
         let s = scs.segregating_sites();
 
         let a = harmonic(n as u64);
@@ -63,7 +63,7 @@ impl private::Statistic for Tajima {
 
     fn variance(scs: &Scs) -> f64 {
         // Notation from Tajima (1989), see also Durrett (2008), pp. 65-66
-        let n = scs.elements();
+        let n = scs.elements() - 1;
         let s = scs.segregating_sites();
 
         let a1 = harmonic(n as u64);

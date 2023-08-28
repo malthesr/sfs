@@ -15,7 +15,7 @@ mod private {
         fn weight(i: usize, n: usize) -> f64;
 
         fn estimate_unchecked<S: State>(spectrum: &Spectrum<S>) -> f64 {
-            let n = spectrum.elements();
+            let n = spectrum.elements() - 1;
 
             spectrum
                 .array
@@ -131,7 +131,7 @@ pub(super) mod tests {
         ];
         const SITES: usize = 360;
 
-        let mut scs = Scs::from_zeros(63);
+        let mut scs = Scs::from_zeros(64);
         for (i, v) in COUNTS {
             scs[[i]] = v as f64;
         }
@@ -152,14 +152,14 @@ pub(super) mod tests {
     // Recreating the spectrum based on the data from Aquadro and Greenberg (1983)
     // in Durrett (2008) p. 44
     pub fn scs_aquadro() -> Scs {
-        const COUNTS: [usize; 7] = [0, 34, 6, 4, 0, 0, 0];
+        const COUNTS: [usize; 8] = [0, 34, 6, 4, 0, 0, 0, 0];
         scs_from_counts(&COUNTS)
     }
 
     // Recreating the spectrum based on the data from Hamblin and Aquadro (1996)
     // in Durrett (2008) p. 68 (without multiallelics as listed on p. 69)
     pub fn scs_hamblin() -> Scs {
-        const COUNTS: [usize; 11] = [0, 1, 11, 4, 7, 2, 0, 0, 0, 0, 0];
+        const COUNTS: [usize; 12] = [0, 1, 11, 4, 7, 2, 0, 0, 0, 0, 0, 0];
         scs_from_counts(&COUNTS)
     }
 
