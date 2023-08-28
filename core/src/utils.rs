@@ -4,7 +4,18 @@
 
 use factorial::ln_factorial;
 
-pub fn pmf_unchecked(size: u64, successes: u64, draws: u64, observed: u64) -> f64 {
+/// Returns the sum of the first n - 1 terms of the harmonic series
+pub fn harmonic(n: u64) -> f64 {
+    p_harmonic(n, 1)
+}
+
+/// Returns the sum of the first n - 1 terms of the p-harmonic series
+pub fn p_harmonic(n: u64, p: u32) -> f64 {
+    (1..n).map(|i| 1.0 / (i.pow(p) as f64)).sum()
+}
+
+/// Returns the PMF of the hypergeometric distribution.
+pub fn hypergeometric_pmf(size: u64, successes: u64, draws: u64, observed: u64) -> f64 {
     if observed > draws {
         0.0
     } else {
@@ -13,7 +24,8 @@ pub fn pmf_unchecked(size: u64, successes: u64, draws: u64, observed: u64) -> f6
     }
 }
 
-fn binomial(n: u64, k: u64) -> f64 {
+/// Returns the binomial coefficient.
+pub fn binomial(n: u64, k: u64) -> f64 {
     if k > n {
         0.0
     } else {
@@ -107,15 +119,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_hypergeometric() {
-        assert_approx_eq!(pmf_unchecked(10, 7, 8, 4), 0.0, epsilon = 1e-6);
-        assert_approx_eq!(pmf_unchecked(10, 7, 8, 5), 0.466667, epsilon = 1e-6);
-        assert_approx_eq!(pmf_unchecked(10, 7, 8, 6), 0.466667, epsilon = 1e-6);
-        assert_approx_eq!(pmf_unchecked(10, 7, 8, 7), 0.066667, epsilon = 1e-6);
-        assert_approx_eq!(pmf_unchecked(10, 7, 8, 8), 0.0, epsilon = 1e-6);
+    fn test_hypergeometric_pmf() {
+        assert_approx_eq!(hypergeometric_pmf(10, 7, 8, 4), 0.0, epsilon = 1e-6);
+        assert_approx_eq!(hypergeometric_pmf(10, 7, 8, 5), 0.466667, epsilon = 1e-6);
+        assert_approx_eq!(hypergeometric_pmf(10, 7, 8, 6), 0.466667, epsilon = 1e-6);
+        assert_approx_eq!(hypergeometric_pmf(10, 7, 8, 7), 0.066667, epsilon = 1e-6);
+        assert_approx_eq!(hypergeometric_pmf(10, 7, 8, 8), 0.0, epsilon = 1e-6);
 
-        assert_approx_eq!(pmf_unchecked(6, 2, 2, 0), 0.4, epsilon = 1e-6);
-        assert_approx_eq!(pmf_unchecked(6, 2, 2, 1), 0.533333, epsilon = 1e-6);
-        assert_approx_eq!(pmf_unchecked(6, 2, 2, 2), 0.066667, epsilon = 1e-6);
+        assert_approx_eq!(hypergeometric_pmf(6, 2, 2, 0), 0.4, epsilon = 1e-6);
+        assert_approx_eq!(hypergeometric_pmf(6, 2, 2, 1), 0.533333, epsilon = 1e-6);
+        assert_approx_eq!(hypergeometric_pmf(6, 2, 2, 2), 0.066667, epsilon = 1e-6);
     }
 }

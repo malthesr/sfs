@@ -1,6 +1,14 @@
 use std::fmt;
 
+pub mod theta;
+pub use theta::Theta;
+
+pub mod d;
+pub use d::D;
+
 use super::{Sfs, Shape, Spectrum, State};
+
+pub type Pi = Theta<theta::Tajima>;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct F2(pub f64);
@@ -162,6 +170,35 @@ impl Heterozygosity {
 
     fn from_sfs_unchecked(sfs: &Sfs) -> Self {
         Self(sfs[[1]])
+    }
+}
+
+#[derive(Debug)]
+pub enum StatisticError {
+    DimensionError(DimensionError),
+    ShapeError(ShapeError),
+}
+
+impl fmt::Display for StatisticError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            StatisticError::DimensionError(e) => write!(f, "{e}"),
+            StatisticError::ShapeError(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for StatisticError {}
+
+impl From<ShapeError> for StatisticError {
+    fn from(e: ShapeError) -> Self {
+        Self::ShapeError(e)
+    }
+}
+
+impl From<DimensionError> for StatisticError {
+    fn from(e: DimensionError) -> Self {
+        Self::DimensionError(e)
     }
 }
 

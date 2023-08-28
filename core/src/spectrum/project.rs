@@ -1,10 +1,8 @@
 use std::fmt;
 
-use crate::array::Shape;
+use crate::{array::Shape, utils::hypergeometric_pmf};
 
 use super::{Count, Scs};
-
-mod hypergeometric;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PartialProjection {
@@ -214,12 +212,7 @@ impl<'a> ProjectIter<'a> {
             .zip(self.project_to.iter())
             .zip(self.to.iter())
             .map(|(((&size, &successes), &draws), &observed)| {
-                hypergeometric::pmf_unchecked(
-                    size as u64,
-                    successes as u64,
-                    draws as u64,
-                    observed as u64,
-                )
+                hypergeometric_pmf(size as u64, successes as u64, draws as u64, observed as u64)
             })
             .fold(1.0, |joint, probability| joint * probability)
     }

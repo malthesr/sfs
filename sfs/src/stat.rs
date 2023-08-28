@@ -4,11 +4,7 @@ use anyhow::Error;
 
 use clap::{CommandFactory, Parser, ValueEnum};
 use sfs_core::{
-    spectrum::{
-        self,
-        stat::{Fst, Heterozygosity, King, F2, R0, R1},
-        Scs,
-    },
+    spectrum::{self, Scs},
     Input,
 };
 
@@ -18,6 +14,8 @@ use runner::Runner;
 use self::runner::StatisticWithOptions;
 
 /// Calculate statistics from SFS.
+///
+///
 #[derive(Debug, Parser)]
 pub struct Stat {
     /// Input SFS.
@@ -67,55 +65,67 @@ pub struct Stat {
 
 #[derive(ValueEnum, Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Statistic {
-    /// 2D SFS only. Based on all sites (including fixed), and may therefore have a
-    /// different scaling factor than when based on SNPs.
+    /// Tajima's D statistic. 1D SFS only. See Durrett (2008).
+    DTajima,
+    /// The f₂-statistic. 2D SFS only. See Peter (2016).
     F2,
-    /// 2D SFS only. Based on Hudson's estimate implemented as ratio of averages from
-    /// Bhatia et al. (2013).
+    /// Hudson's estimator of Fst, as ratio of averages. 2D SFS only. See Bhatia et al. (2013).
     Fst,
-    /// Shape 3 1D SFS only.
-    Heterozygosity,
-    /// Shape 3x3 2D SFS only. Based on Waples et al. (2019).
+    /// Heterozygosity. Shape 3 1D SFS only.
+    Het,
+    /// Average pairwise differences. 1D SFS only.
+    Pi,
+    /// The King kinship statistic. Shape 3x3 2D SFS only. See Waples et al. (2019).
     King,
-    /// Shape 3x3 2D SFS only. Based on Waples et al. (2019).
+    /// The R0 kinship statistic. Shape 3x3 2D SFS only. See Waples et al. (2019).
     R0,
-    /// Shape 3x3 2D SFS only. Based on Waples et al. (2019).
+    /// The R1 kinship statistic. Shape 3x3 2D SFS only. See Waples et al. (2019).
     R1,
-    /// Sum of SFS.
+    /// Number of segregating sites (in at least one population).
+    S,
+    /// Sum of SFS. This will be total number of sites if not normalized, and ≈1 otherwise.
     Sum,
+    /// Watterson's estimator of θ. 1D SFS only. Use π for Tajima's estimator. See Durrett (2008).
+    Theta,
 }
 
 impl Statistic {
     pub fn calculate(self, scs: &Scs) -> Result<f64, Error> {
         Ok(match self {
-            Statistic::F2 => F2::from_sfs(&scs.clone().into_normalized())?.0,
-            Statistic::Fst => Fst::from_sfs(&scs.clone().into_normalized())?.0,
-            Statistic::Heterozygosity => {
-                Heterozygosity::from_sfs(&scs.clone().into_normalized())?.0
-            }
-            Statistic::King => King::from_spectrum(scs)?.0,
-            Statistic::R0 => R0::from_spectrum(scs)?.0,
-            Statistic::R1 => R1::from_spectrum(scs)?.0,
+            Statistic::F2 => scs.clone().into_normalized().f2()?,
+            Statistic::Fst => scs.clone().into_normalized().fst()?,
+            Statistic::DTajima => scs.d_tajima()?,
+            Statistic::Het => scs.clone().into_normalized().heterozygosity()?,
+            Statistic::King => scs.king()?,
+            Statistic::Pi => scs.pi()?,
+            Statistic::R0 => scs.r0()?,
+            Statistic::R1 => scs.r1()?,
+            Statistic::S => scs.segregating_sites(),
             Statistic::Sum => scs.sum(),
+            Statistic::Theta => scs.theta_watterson()?,
         })
     }
 
-    pub fn name(&self) -> &'static str {
+    pub fn header_name(&self) -> &'static str {
         match self {
+            Statistic::DTajima => "d_tajima",
             Statistic::F2 => "f2",
             Statistic::Fst => "fst",
-            Statistic::Heterozygosity => "heterozygosity",
+            Statistic::Het => "heterozygosity",
             Statistic::King => "king",
+            Statistic::Pi => "pi",
             Statistic::R0 => "r0",
             Statistic::R1 => "r1",
+            Statistic::S => "segregating_sites",
             Statistic::Sum => "sum",
+            Statistic::Theta => "theta",
         }
     }
 }
 
 impl fmt::Display for Statistic {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
+        f.write_str(self.header_name())
     }
 }
 

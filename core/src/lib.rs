@@ -12,3 +12,5 @@ pub use spectrum::{Scs, Sfs, Spectrum};
 
 pub mod array;
 pub use array::Array;
+
+pub mod utils;

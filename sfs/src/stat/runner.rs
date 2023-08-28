@@ -63,7 +63,7 @@ where
         let header_names = self
             .statistics
             .iter()
-            .map(|s| s.statistic.name())
+            .map(|s| s.statistic.header_name())
             .collect::<Vec<_>>();
 
         self.write_with_delimiter(header_names)

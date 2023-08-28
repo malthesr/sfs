@@ -18,7 +18,8 @@ pub use folded::Folded;
 pub mod project;
 use project::{Projection, ProjectionError};
 
-pub mod stat;
+mod stat;
+pub use stat::StatisticError;
 
 use crate::array::{Array, Axis, Shape, ShapeError};
 
@@ -27,6 +28,7 @@ mod seal {
     pub trait Sealed {}
 }
 use seal::Sealed;
+
 pub trait State: Sealed {
     #[doc(hidden)]
     fn debug_name() -> &'static str;
@@ -90,6 +92,12 @@ impl<S: State> Spectrum<S> {
 
     pub fn iter_frequencies(&self) -> FrequenciesIter<'_> {
         FrequenciesIter::new(self)
+    }
+
+    pub fn king(&self) -> Result<f64, StatisticError> {
+        stat::King::from_spectrum(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
     }
 
     pub fn marginalize(&self, axes: &[Axis]) -> Result<Self, MarginalizationError> {
@@ -166,6 +174,30 @@ impl<S: State> Spectrum<S> {
         self.array.iter_mut().for_each(|x| *x /= sum);
     }
 
+    pub fn pi(&self) -> Result<f64, StatisticError> {
+        stat::Pi::from_spectrum(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
+    }
+
+    pub fn r0(&self) -> Result<f64, StatisticError> {
+        stat::R0::from_spectrum(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
+    }
+
+    pub fn r1(&self) -> Result<f64, StatisticError> {
+        stat::R1::from_spectrum(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
+    }
+
+    pub fn theta_watterson(&self) -> Result<f64, StatisticError> {
+        stat::Theta::<stat::theta::Watterson>::from_spectrum(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
+    }
+
     pub fn shape(&self) -> &Shape {
         self.array.shape()
     }
@@ -176,16 +208,16 @@ impl<S: State> Spectrum<S> {
 }
 
 impl Scs {
-    pub fn inner_mut(&mut self) -> &mut Array<f64> {
-        &mut self.array
+    pub fn d_fu_li(&self) -> Result<f64, StatisticError> {
+        stat::D::<stat::d::FuLi>::from_scs(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
     }
 
-    pub fn new<D, S>(data: D, shape: S) -> Result<Self, ShapeError>
-    where
-        Vec<f64>: From<D>,
-        Shape: From<S>,
-    {
-        Array::new(data, shape).map(Self::from)
+    pub fn d_tajima(&self) -> Result<f64, StatisticError> {
+        stat::D::<stat::d::Tajima>::from_scs(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
     }
 
     pub fn from_range<S>(range: Range<usize>, shape: S) -> Result<Self, ShapeError>
@@ -200,6 +232,40 @@ impl Scs {
         Shape: From<S>,
     {
         Self::from(Array::from_zeros(shape))
+    }
+
+    pub fn inner_mut(&mut self) -> &mut Array<f64> {
+        &mut self.array
+    }
+
+    pub fn new<D, S>(data: D, shape: S) -> Result<Self, ShapeError>
+    where
+        Vec<f64>: From<D>,
+        Shape: From<S>,
+    {
+        Array::new(data, shape).map(Self::from)
+    }
+
+    pub fn segregating_sites(&self) -> f64 {
+        let n = self.elements();
+
+        self.array.iter().take(n - 1).skip(1).sum()
+    }
+}
+
+impl Sfs {
+    pub fn f2(&self) -> Result<f64, StatisticError> {
+        stat::F2::from_sfs(self).map(|x| x.0).map_err(Into::into)
+    }
+
+    pub fn fst(&self) -> Result<f64, StatisticError> {
+        stat::Fst::from_sfs(self).map(|x| x.0).map_err(Into::into)
+    }
+
+    pub fn heterozygosity(&self) -> Result<f64, StatisticError> {
+        stat::Heterozygosity::from_sfs(self)
+            .map(|x| x.0)
+            .map_err(Into::into)
     }
 }
 

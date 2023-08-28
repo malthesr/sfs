@@ -1,4 +1,7 @@
 macro_rules! assert_approx_eq {
+    ($lhs:expr, $rhs:expr) => {
+        assert_approx_eq!($lhs, $rhs, epsilon = 1e-6);
+    };
     ($lhs:expr, $rhs:expr, epsilon = $epsilon:expr) => {
         match (&($lhs), &($rhs)) {
             (lhs, rhs) => assert!(
