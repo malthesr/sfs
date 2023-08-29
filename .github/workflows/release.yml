@@ -1,4 +1,5 @@
 name: release
+
 on:
   release:
     types: [created]
@@ -6,39 +7,27 @@ on:
 permissions:
   contents: write
 
-env:
-  NAME: sfs
-
 jobs:
-  release_assets:
-    name: Release
-    runs-on: ${{ matrix.config.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - {os: ubuntu-latest, target: x86_64-unknown-linux-gnu}
-          - {os: macos-latest, target: x86_64-apple-darwin}
-          - {os: windows-latest, target: x86_64-pc-windows-msvc}
+  create:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/create-gh-release-action@v1
         with:
-          toolchain: stable
-      - name: Build
-        run: cargo build --release --target ${{ matrix.config.target }}
-      - name: Archive (Unix)
-        if: matrix.config.os != 'windows-latest'
-        run: tar czf ${{ env.NAME }}-${{ matrix.config.target }}.tar.gz -C ./target/${{ matrix.config.target }}/release/ ${{ env.NAME }}
-      - name: Archive (Windows)
-        if: matrix.config.os == 'windows-latest'
-        run: compress-archive ./target/${{ matrix.config.target }}/release/${{ env.NAME }}.exe ${{ env.NAME }}-${{ matrix.config.target }}.zip
-      - name: Upload
-        uses: svenstaro/upload-release-action@v2
+          token: ${{ secrets.GITHUB_TOKEN }}
+  upload:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ env.NAME }}-${{ matrix.config.target }}.*
-          asset_name: ${{ env.NAME }}-${{ matrix.config.target }}
-          tag: ${{ github.ref }}
-          file_glob: true
-          overwrite: true
+          bin: sfs
+          tar: unix
+          zip: windows
+          token: ${{ secrets.GITHUB_TOKEN }}
