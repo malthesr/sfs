@@ -31,7 +31,7 @@ jobs:
         if: matrix.config.os == 'windows-latest'
         run: compress-archive ./target/${{ matrix.config.target }}/release/${{ env.NAME }}.exe ${{ env.NAME }}-${{ matrix.config.target }}.zip
       - name: Upload
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@v1-release
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ${{ env.NAME }}-${{ matrix.config.target }}.*
