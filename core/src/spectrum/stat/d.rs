@@ -22,7 +22,7 @@ mod private {
             let t2 = Theta::<Self::T2>::from_spectrum_unchecked(scs).0;
             let var = Self::variance(scs);
 
-            (dbg!(t1) - dbg!(t2)) / var
+            (t1 - t2) / var
         }
     }
 }
