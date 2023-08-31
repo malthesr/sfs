@@ -1,3 +1,5 @@
+//! Site reader.
+
 use std::io;
 
 pub mod builder;
@@ -11,6 +13,7 @@ use crate::{
 
 use super::Site;
 
+/// A site reader.
 pub struct Reader {
     reader: Box<dyn genotype::Reader>,
     sample_map: sample::Map,
@@ -21,6 +24,8 @@ pub struct Reader {
 }
 
 impl Reader {
+    /// Returns a spectrum filled with zeros corresponding to the shape defined by the reader
+    /// configuration.
     pub fn create_zero_scs(&self) -> Scs {
         let shape = self
             .projection
@@ -31,14 +36,18 @@ impl Reader {
         Scs::from_zeros(shape)
     }
 
+    /// Returns the current contig of the reader.
     pub fn current_contig(&self) -> &str {
         self.reader.current_contig()
     }
 
+    /// Returns the current position of the reader within its current contig.
     pub fn current_position(&self) -> usize {
         self.reader.current_position()
     }
 
+    /// Returns an iterator over the currently skipped genotypes in the reader, with their
+    /// associated samples.
     pub fn current_skipped_samples(&self) -> impl Iterator<Item = (&Sample, &genotype::Skipped)> {
         self.skipped_samples
             .iter()
@@ -62,6 +71,7 @@ impl Reader {
         }
     }
 
+    /// Reads the next site in the reader.
     pub fn read_site(&mut self) -> ReadStatus<Site<'_>> {
         self.reset();
 
@@ -122,6 +132,7 @@ impl Reader {
         self.skipped_samples.clear();
     }
 
+    /// Returns the samples defined by the reader.
     pub fn samples(&self) -> &[Sample] {
         self.reader.samples()
     }

@@ -1,3 +1,5 @@
+//! Site reader builder.
+
 use std::{collections::HashSet, fmt, io, path::PathBuf};
 
 use sample::Sample;
@@ -8,6 +10,7 @@ use crate::{
     spectrum::project::{PartialProjection, ProjectionError},
 };
 
+/// A site reader builder.
 #[derive(Debug, Default)]
 pub struct Builder {
     samples: Option<Option<Samples>>,
@@ -15,6 +18,11 @@ pub struct Builder {
 }
 
 impl Builder {
+    /// Returns a new reader based on the provided genotype reader.
+    ///
+    /// # Errors
+    ///
+    /// For a variety of reasons, see [`Error`] for details.
     pub fn build(self, reader: genotype::reader::DynReader) -> Result<super::Reader, Error> {
         let sample_map = match self.samples.unwrap_or(None) {
             Some(Samples::List(list)) => sample::Map::from_iter(list),
@@ -69,26 +77,38 @@ impl Builder {
         Ok(super::Reader::new_unchecked(reader, sample_map, projection))
     }
 
+    /// Sets the projection used for reading.
+    ///
+    /// By default, no projection will be used.
     pub fn set_project(mut self, project: Option<Project>) -> Self {
         self.project = Some(project);
         self
     }
 
+    /// Sets the sample mapping used for reading.
+    ///
+    /// By default, all samples will be mapped to the same, unnamed population.
     pub fn set_samples(mut self, samples: Option<Samples>) -> Self {
         self.samples = Some(samples);
         self
     }
 }
 
+/// A source for a sample mapping.
 #[derive(Debug)]
 pub enum Samples {
+    /// A path to a samples file.
     Path(PathBuf),
+    /// A list of samples and associated populations.
     List(Vec<(Sample, sample::Population)>),
 }
 
+/// A projection specification.
 #[derive(Debug)]
 pub enum Project {
+    /// Project to specified number of individuals.
     Individuals(Vec<usize>),
+    /// Project to specified shape.
     Shape(Shape),
 }
 
@@ -103,13 +123,25 @@ impl Project {
     }
 }
 
+/// An error associated with building a site reader.
 #[derive(Debug)]
 pub enum Error {
+    /// Provided sample mappping is empty.
     EmptySamplesMap,
+    /// I/O error.
     Io(io::Error),
-    PathDoesNotExist { path: PathBuf },
+    /// A provided path does not exist.
+    PathDoesNotExist {
+        /// The provided path.
+        path: PathBuf,
+    },
+    /// A projection error.
     Projection(ProjectionError),
-    UnknownSample { sample: String },
+    /// Provided sample mapping defines a sample not defined by the genotype reader.
+    UnknownSample {
+        /// The unknown sample.
+        sample: String,
+    },
 }
 
 impl From<io::Error> for Error {

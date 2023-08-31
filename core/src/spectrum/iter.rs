@@ -1,9 +1,17 @@
+//! Spectrum iterators.
+//!
+//! The types in this module are constructed via methods on [`Spectrum`],
+//! and generally expose no functionality other than being iterable.
+
 use std::iter::FusedIterator;
 
 use crate::array::iter::IndicesIter;
 
 use super::{Spectrum, State};
 
+/// An iterator over the allele frequencies corresponding to the indices of a [`Spectrum`].
+///
+/// See [`Spectrum::iter_frequencies`] for details.
 #[derive(Debug)]
 pub struct FrequenciesIter<'a> {
     inner: IndicesIter<'a>,

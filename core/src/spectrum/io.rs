@@ -1,7 +1,7 @@
 //! Utilities for reading and writing spectrum.
 
 pub mod read;
-pub mod text;
+mod text;
 pub mod write;
 
 use crate::array::npy;
@@ -9,9 +9,9 @@ use crate::array::npy;
 /// Supported formats.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Format {
-    // Numpy binary npy format.
+    /// Numpy binary npy format.
     Npy,
-    // Plain text format.
+    /// Plain text format.
     Text,
 }
 

@@ -1,10 +1,15 @@
+//! Sample population.
+
 use std::fmt;
 
 use indexmap::IndexSet;
 
+/// A population for a sample.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Population {
+    /// Named population.
     Named(String),
+    /// Unnamed population.
     Unnamed,
 }
 
@@ -29,6 +34,7 @@ impl fmt::Display for Population {
     }
 }
 
+/// A numeric id for a sample population.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id(pub usize);
 

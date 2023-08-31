@@ -2,6 +2,9 @@ use std::iter::FusedIterator;
 
 use super::View;
 
+/// An iterator over the elements in a [`View`].
+///
+/// See [`View::iter`] for details.
 #[derive(Clone, Debug)]
 pub struct Iter<'a, T> {
     view: View<'a, T>,

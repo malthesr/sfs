@@ -11,10 +11,6 @@ pub struct PartialProjection {
 }
 
 impl PartialProjection {
-    pub fn dimensions(&self) -> usize {
-        self.project_to.dimensions()
-    }
-
     pub fn from_shape<S>(project_to: S) -> Result<Self, ProjectionError>
     where
         S: Into<Shape>,
@@ -58,10 +54,6 @@ pub struct Projection {
 }
 
 impl Projection {
-    pub fn dimensions(&self) -> usize {
-        self.inner.dimensions()
-    }
-
     pub fn from_shapes<S>(project_from: S, project_to: S) -> Result<Self, ProjectionError>
     where
         S: Into<Shape>,
@@ -115,10 +107,6 @@ impl Projection {
             project_from: project_from.into(),
             inner: PartialProjection::new(project_to),
         }
-    }
-
-    pub fn project_to(&self) -> &Count {
-        self.inner.project_to()
     }
 
     pub fn project_unchecked<'a>(&'a mut self, from: &'a Count) -> Projected<'a> {
@@ -226,18 +214,28 @@ impl<'a> Iterator for ProjectIter<'a> {
     }
 }
 
+/// An error associated with a projection.
 #[derive(Debug)]
 pub enum ProjectionError {
+    /// Empty projection.
     Empty,
+    /// Projection attempts to project from a smaller to a larger shape.
     InvalidProjection {
+        /// Dimension in which projection fails.
         dimension: usize,
+        /// Shape from which to project from.
         from: usize,
+        /// Shape from which to project to.
         to: usize,
     },
+    /// Projection attempts to project from one dimension to another.
     UnequalDimensions {
+        /// Dimension from which to project from.
         from: usize,
+        /// Dimension from which to project to.
         to: usize,
     },
+    /// Projection in the zero dimension.
     Zero,
 }
 
@@ -267,43 +265,6 @@ impl fmt::Display for ProjectionError {
 }
 
 impl std::error::Error for ProjectionError {}
-#[derive(Debug)]
-pub enum ProjectError {
-    InvalidProjection {
-        dimension: usize,
-        from: usize,
-        to: usize,
-    },
-    UnequalDimensions {
-        from: usize,
-        to: usize,
-    },
-}
-
-impl fmt::Display for ProjectError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ProjectError::InvalidProjection {
-                dimension,
-                from,
-                to,
-            } => {
-                write!(
-                    f,
-                    "cannot project from count {from} to count {to} in dimension {dimension}"
-                )
-            }
-            ProjectError::UnequalDimensions { from, to } => {
-                write!(
-                    f,
-                    "cannot project from one number of dimensions ({from}) to another ({to})"
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for ProjectError {}
 
 #[cfg(test)]
 mod tests {

@@ -1,7 +1,15 @@
+//! Array iterators.
+//!
+//! The types in this module are constructed via methods on [`Array`],
+//! and generally expose no functionality other than being iterable.
+
 use std::iter::FusedIterator;
 
 use super::{Array, Axis, Shape, View};
 
+/// An iterator over [`View`]s along an axis of an [`Array`].
+///
+/// See [`Array::iter_axis`] for details.
 #[derive(Debug)]
 pub struct AxisIter<'a, T> {
     array: &'a Array<T>,
@@ -38,6 +46,9 @@ impl<'a, T> ExactSizeIterator for AxisIter<'a, T> {}
 
 impl<'a, T> FusedIterator for AxisIter<'a, T> {}
 
+/// An iterator over indices of elements in an array in row-major order.
+///
+/// See [`Array::iter_indices`] for details.
 #[derive(Debug)]
 pub struct IndicesIter<'a> {
     shape: &'a Shape,
@@ -54,7 +65,7 @@ impl<'a> IndicesIter<'a> {
         Self::from_shape(array.shape())
     }
 
-    pub fn from_shape(shape: &'a Shape) -> Self {
+    pub(crate) fn from_shape(shape: &'a Shape) -> Self {
         Self {
             shape,
             index: 0,

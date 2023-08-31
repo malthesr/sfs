@@ -1,20 +1,23 @@
-pub mod iter;
+//! N-dimensional array.
+
 use std::{
     fmt, io,
     ops::{Index, IndexMut},
 };
 
+pub mod iter;
 use iter::{AxisIter, IndicesIter};
 
 pub mod npy;
 
-pub mod shape;
+pub(crate) mod shape;
 use shape::Strides;
 pub use shape::{Axis, Shape};
 
 pub mod view;
 use view::View;
 
+/// An N-dimensional strided array.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Array<T> {
     data: Vec<T>,
@@ -23,22 +26,27 @@ pub struct Array<T> {
 }
 
 impl<T> Array<T> {
+    /// Returns a mutable reference to the underlying data as a flat slice in row-major order.
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         self.data.as_mut_slice()
     }
 
+    /// Returns the underlying data as a flat slice in row-major order.
     pub fn as_slice(&self) -> &[T] {
         self.data.as_slice()
     }
 
+    /// Returns the number of dimensions of the array.
     pub fn dimensions(&self) -> usize {
         self.shape.len()
     }
 
+    /// Returns the number of elements in the array.
     pub fn elements(&self) -> usize {
         self.data.len()
     }
 
+    /// Creates a new array by repeating a single element to a shape.
     pub fn from_element<S>(element: T, shape: S) -> Self
     where
         T: Clone,
@@ -50,6 +58,11 @@ impl<T> Array<T> {
         Self::new_unchecked(vec![element; elements], shape)
     }
 
+    /// Creates a new array from an iterator an its shape.
+    ///
+    /// # Errors
+    ///
+    /// If the number of items in the iterator does not match the provided shape.
     pub fn from_iter<I, S>(iter: I, shape: S) -> Result<Self, ShapeError>
     where
         I: IntoIterator<Item = T>,
@@ -58,6 +71,7 @@ impl<T> Array<T> {
         Self::new(Vec::from_iter(iter), shape)
     }
 
+    /// Returns the element at the provided index if in bounds, and `None` otherwise,
     pub fn get<I>(&self, index: I) -> Option<&T>
     where
         I: AsRef<[usize]>,
@@ -73,6 +87,10 @@ impl<T> Array<T> {
         }
     }
 
+    /// Returns a view of the array along the provided axis at the provided index if in bounds, and
+    /// `None` otherwise.
+    ///
+    /// See [`Array::index_axis`] for a panicking version.
     pub fn get_axis(&self, axis: Axis, index: usize) -> Option<View<'_, T>> {
         if axis.0 > self.dimensions() || index >= self.shape[axis.0] {
             None
@@ -86,6 +104,8 @@ impl<T> Array<T> {
         }
     }
 
+    /// Returns a mutable reference to the element at the provided index if in bounds, and `None`
+    /// otherwise,
     pub fn get_mut<I>(&mut self, index: I) -> Option<&mut T>
     where
         I: AsRef<[usize]>,
@@ -101,27 +121,41 @@ impl<T> Array<T> {
         }
     }
 
+    /// Returns a view of the array along the provided axis at the provided index if in bounds.
+    ///
+    /// # Panics
+    ///
+    /// If the axis or the index is not in bounds, see [`Array::get_axis`] for a fallible version.
     pub fn index_axis(&self, axis: Axis, index: usize) -> View<'_, T> {
         self.get_axis(axis, index)
             .expect("axis or index out of bounds")
     }
 
+    /// Returns an iterator over the underlying data in row-major order.
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.data.iter()
     }
 
+    /// Returns an iterator over views of the array along the provided axis.
     pub fn iter_axis(&self, axis: Axis) -> AxisIter<'_, T> {
         AxisIter::new(self, axis)
     }
 
+    /// Returns an iterator over indices of the array in row-major order.
     pub fn iter_indices(&self) -> IndicesIter<'_> {
         IndicesIter::new(self)
     }
 
+    /// Returns an iterator over mutable references to the underlying data in row-major order.
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, T> {
         self.data.iter_mut()
     }
 
+    /// Creates a new array from data in row-major order and a shape.
+    ///
+    /// # Errors
+    ///
+    /// If the number of items in the data does not match the provided shape.
     pub fn new<D, S>(data: D, shape: S) -> Result<Self, ShapeError>
     where
         D: Into<Vec<T>>,
@@ -140,6 +174,10 @@ impl<T> Array<T> {
         }
     }
 
+    /// Creates a new array from data in row-major order and a shape.
+    ///
+    /// Prefer using [`Array::new`] to ensure the data fits the provided shape.
+    /// It is a logic error where this is not true, though it can not trigger unsafe behaviour.
     pub fn new_unchecked<D, S>(data: D, shape: S) -> Self
     where
         D: Into<Vec<T>>,
@@ -155,19 +193,25 @@ impl<T> Array<T> {
         }
     }
 
+    /// Returns the shape of the array.
     pub fn shape(&self) -> &Shape {
         &self.shape
     }
 }
 
 impl Array<f64> {
+    /// Creates a new array filled with zeros to a shape.
     pub fn from_zeros<S>(shape: S) -> Self
     where
-        Shape: From<S>,
+        S: Into<Shape>,
     {
         Self::from_element(0.0, shape)
     }
 
+    /// Reads an array from the [`npy`] format.
+    ///
+    /// See the [format docs](https://numpy.org/devdocs/reference/generated/numpy.lib.format.html)
+    /// for details.
     pub fn read_npy<R>(mut reader: R) -> io::Result<Self>
     where
         R: io::BufRead,
@@ -175,6 +219,7 @@ impl Array<f64> {
         npy::read_array(&mut reader)
     }
 
+    /// Returns the sum of the elements in the array.
     pub fn sum(&self, axis: Axis) -> Self {
         let smaller_shape = self.shape.remove_axis(axis).into_shape();
 
@@ -185,6 +230,10 @@ impl Array<f64> {
             })
     }
 
+    /// Writes the in the [`npy`] format.
+    ///
+    /// See the [format docs](https://numpy.org/devdocs/reference/generated/numpy.lib.format.html)
+    /// for details.
     pub fn write_npy<W>(&self, mut writer: W) -> io::Result<()>
     where
         W: io::Write,
@@ -215,6 +264,7 @@ where
     }
 }
 
+/// An error associated with a shape mismatch on construction of an [`Array`].
 #[derive(Debug)]
 pub struct ShapeError {
     shape: Shape,

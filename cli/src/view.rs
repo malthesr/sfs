@@ -60,8 +60,9 @@ struct Marginalize {
     /// Marginalize populations.
     ///
     /// Marginalize out provided populations. Marginalization corresponds to an
-    /// array sum over the SFS seen as an array. Use a comma-separated list of 0-based dimensions to
-    ///  keep, using the same ordering of the dimensions of the SFS as specified e.g. in the header.
+    /// array sum over the SFS seen as an array. Use a comma-separated list of 0-based dimensions
+    /// to  keep, using the same ordering of the dimensions of the SFS as specified e.g. in the
+    /// header.
     #[clap(
         short = 'm',
         long = "marginalize-remove",
@@ -109,8 +110,8 @@ struct Project {
     ///
     /// Alternative to `--project-individuals`, see documentation for background. Using this
     /// argument, the projection can be specified by shape, rather than number of individuals.
-    /// For example, `--project-shape 7,5` would project a two-dimensional SFS down to three diploid
-    /// individuals in the first dimension and two in the second.
+    /// For example, `--project-shape 7,5` would project a two-dimensional SFS down to three
+    /// diploid individuals in the first dimension and two in the second.
     #[clap(
         long = "project-shape",
         use_value_delimiter = true,

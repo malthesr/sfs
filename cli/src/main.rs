@@ -33,8 +33,8 @@ pub struct Cli {
 
     /// Suppress log output.
     ///
-    /// By default, information may be logged to stderr while running. Set this flag once to silence
-    /// normal logging output, and set twice to silence warnings.
+    /// By default, information may be logged to stderr while running. Set this flag once to
+    /// silence normal logging output, and set twice to silence warnings.
     #[arg(
         short = 'q',
         long,

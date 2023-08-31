@@ -1,3 +1,5 @@
+//! Array views.
+
 use super::{
     shape::{RemovedAxis, Strides},
     Array, Shape,
@@ -6,6 +8,10 @@ use super::{
 mod iter;
 pub use iter::Iter;
 
+/// A view of an array along a particular axis.
+///
+/// See [`Array::get_axis`], [`Array::index_axis`], and [`Array::iter_axis`] for methods to obtain
+/// axis views.
 #[derive(Debug, PartialEq)]
 pub struct View<'a, T> {
     data: &'a [T], // first element is first element in view
@@ -22,10 +28,12 @@ impl<'a, T> Clone for View<'a, T> {
 impl<'a, T> Copy for View<'a, T> {}
 
 impl<'a, T> View<'a, T> {
+    /// Returns the number of dimensions of the view.
     pub fn dimensions(&self) -> usize {
         self.shape.len()
     }
 
+    /// Returns an iterator over the elements in the view in row-major order.
     pub fn iter(&self) -> Iter<'_, T> {
         Iter::new(*self)
     }
@@ -42,6 +50,7 @@ impl<'a, T> View<'a, T> {
         }
     }
 
+    /// Returns an owned array corresponding to the view.
     pub fn to_array(&self) -> Array<T>
     where
         T: Clone,

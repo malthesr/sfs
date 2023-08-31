@@ -71,8 +71,8 @@ pub enum Statistic {
     /// The f₃(A; B, C)-statistic, where A, B, C is in the order of the populations in the SFS.
     /// 3D SFS only. See Peter (2016).
     F3,
-    /// The f₄(A, B; C, D)-statistic, where A, B, C, D is in the order of the populations in the SFS.
-    /// 4D SFS only. See Peter (2016).
+    /// The f₄(A, B; C, D)-statistic, where A, B, C, D is in the order of the populations in the
+    /// SFS. 4D SFS only. See Peter (2016).
     F4,
     /// Hudson's estimator of Fst, as ratio of averages. 2D SFS only.
     /// See Bhatia et al. (2013).

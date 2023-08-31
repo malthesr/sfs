@@ -1,3 +1,5 @@
+//! Utilities for writing spectra.
+
 use std::{fs, io, path::Path};
 
 use crate::{spectrum::State, Spectrum};

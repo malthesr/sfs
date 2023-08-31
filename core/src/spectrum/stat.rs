@@ -36,7 +36,6 @@ impl PiXY {
             .flat_map(|m1| (0..=n2).map(move |m2| (m1, m2)))
             .take(spectrum.elements() - 1)
             .skip(1)
-            // .inspect(|(m1, m2)| eprintln!("{m1}, {m2}"))
             .map(|(m1, m2)| {
                 let p1 = m1 * (n2 - m2);
                 let p2 = m2 * (n1 - m1);
@@ -245,9 +244,12 @@ impl R1 {
     }
 }
 
+/// An error associated with the calculation of a statistic from a spectrum.
 #[derive(Debug)]
 pub enum StatisticError {
+    /// The statistic is not defined for an array of the provided dimensionality.
     DimensionError(DimensionError),
+    /// The statistic is not defined for an array of the provided shape.
     ShapeError(ShapeError),
 }
 

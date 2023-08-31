@@ -1,3 +1,5 @@
+//! Input samples.
+
 use std::{collections::HashMap, fs::File, io, path::Path};
 
 use indexmap::IndexMap;
@@ -7,9 +9,11 @@ use crate::array::Shape;
 pub mod population;
 pub use population::Population;
 
+/// A sample.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Sample(String);
 
+/// A numeric id for a sample.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id(pub usize);
 
@@ -28,10 +32,12 @@ impl AsRef<str> for Sample {
     }
 }
 
+/// A mapping from samples to populations.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Map(IndexMap<Sample, population::Id>);
 
 impl Map {
+    /// Creates a new mapping by mapping all samples to the same, unnamed population.
     pub fn from_all<I>(samples: I) -> Self
     where
         I: IntoIterator<Item = Sample>,
@@ -43,6 +49,7 @@ impl Map {
         )
     }
 
+    /// Creates a new mapping by reading a samples file at the provided path.
     pub fn from_path<P>(path: P) -> io::Result<Self>
     where
         P: AsRef<Path>,
@@ -50,6 +57,7 @@ impl Map {
         File::open(path).and_then(Self::from_reader)
     }
 
+    /// Creates a new mapping by reading a samples file from the provided reader.
     pub fn from_reader<R>(mut reader: R) -> io::Result<Self>
     where
         R: io::Read,
@@ -69,26 +77,32 @@ impl Map {
             .collect()
     }
 
+    /// Returns the population id of a sample if defined, otherwise `None`.
     pub fn get_population_id(&self, sample: &Sample) -> Option<population::Id> {
         self.0.get(sample).copied()
     }
 
+    /// Returns the sample with the provided id if defined, otherwise `None`.
     pub fn get_sample(&self, id: Id) -> Option<&Sample> {
         self.0.get_index(id.0).map(|opt| opt.0)
     }
 
+    /// Returns the id of the provided sample if defined, otherwise `None`.
     pub fn get_sample_id(&self, sample: &Sample) -> Option<Id> {
         self.0.get_index_of(sample).map(Id)
     }
 
+    /// Returns true if no samples are defined, false otherwise.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Returns the number of populations in the mapping.
     pub fn number_of_populations(&self) -> usize {
         self.population_sizes().len()
     }
 
+    /// Returns the number of samples defined for each population id.
     pub fn population_sizes(&self) -> HashMap<population::Id, usize> {
         let mut sizes = HashMap::new();
         for &population_id in self.0.values() {
@@ -97,11 +111,12 @@ impl Map {
         sizes
     }
 
+    /// Returns an iterator over the samples in the mapping.
     pub fn samples(&self) -> impl Iterator<Item = &Sample> {
         self.0.keys()
     }
 
-    pub fn shape(&self) -> Shape {
+    pub(crate) fn shape(&self) -> Shape {
         let population_sizes = self.population_sizes();
 
         Shape(

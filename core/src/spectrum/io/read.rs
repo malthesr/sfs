@@ -1,4 +1,4 @@
-//! Utilities for reading SCS.
+//! Utilities for reading spectra.
 
 use std::io::{self, Read};
 
@@ -6,7 +6,7 @@ use crate::{Array, Input, Scs};
 
 use super::{text, Format};
 
-/// A builder to read an SCS.
+/// A builder to read a spectrum.
 #[derive(Debug, Default)]
 pub struct Builder {
     input: Option<Input>,
@@ -14,7 +14,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    /// Read SCS from reader.
+    /// Read a spectrum from reader.
     pub fn read(self) -> io::Result<Scs> {
         let mut raw = Vec::new();
 

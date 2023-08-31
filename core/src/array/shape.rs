@@ -6,6 +6,7 @@ pub(crate) use removed_axis::RemovedAxis;
 mod strides;
 pub use strides::Strides;
 
+/// An axis index for an array.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Axis(pub usize);
 
@@ -17,14 +18,17 @@ impl Deref for Axis {
     }
 }
 
+/// An N-dimensional array shape.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Shape(pub Vec<usize>);
 
 impl Shape {
+    /// The number of dimensions of an array with the corresponding shape.
     pub fn dimensions(&self) -> usize {
         self.0.len()
     }
 
+    /// The number of elements of an array with the corresponding shape.
     pub fn elements(&self) -> usize {
         self.iter().product()
     }

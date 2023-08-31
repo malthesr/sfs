@@ -1,4 +1,4 @@
-use std::{io, num::NonZeroUsize, path::PathBuf};
+use std::{num::NonZeroUsize, path::PathBuf};
 
 use anyhow::Error;
 
@@ -9,8 +9,7 @@ use runner::Runner;
 use sfs_core::{
     array::Shape,
     input::{genotype, sample, site, Sample},
-    spectrum::io::text::write_spectrum,
-    Input,
+    spectrum, Input,
 };
 
 /// Create SFS from VCF/BCF.
@@ -25,8 +24,8 @@ pub struct Create {
 
     /// Output precision.
     ///
-    /// This option is only used when projecting, and otherwise set to zero since the output must be
-    /// integer counts.
+    /// This option is only used when projecting, and otherwise set to zero since the output must
+    /// be integer counts.
     #[arg(long, default_value_t = 6, value_name = "INT")]
     precision: usize,
 
@@ -38,9 +37,9 @@ pub struct Create {
 
     /// Fail on missingness.
     ///
-    /// By default, any site with missing and/or multiallelic genotypes in the applied sample subset
-    /// are skipped and logged. Using this flag will cause an error if such genotypes are
-    /// encountered.
+    /// By default, any site with missing and/or multiallelic genotypes in the applied sample
+    /// subset are skipped and logged. Using this flag will cause an error if such genotypes
+    /// are encountered.
     #[arg(long)]
     strict: bool,
 
@@ -56,11 +55,11 @@ pub struct Create {
 struct Samples {
     /// Sample subset.
     ///
-    /// By default, a one-dimensional SFS of all samples is created. Using this argument, the subset
-    /// of samples can be restricted. Multiple, comma-separated values may be provided. To construct
-    /// a multi-dimensional SFS, the samples may be provided as `sample=population` pairs.
-    /// The ordering of populations in the resulting SFS corresponds to the order of appearance of
-    /// input population names.
+    /// By default, a one-dimensional SFS of all samples is created. Using this argument, the
+    /// subset of samples can be restricted. Multiple, comma-separated values may be provided.
+    /// To construct a multi-dimensional SFS, the samples may be provided as
+    /// `sample=population` pairs. The ordering of populations in the resulting SFS corresponds
+    /// to the order of appearance of input population names.
     #[arg(
         short = 's',
         long = "samples",
@@ -75,7 +74,8 @@ struct Samples {
     ///
     /// Alternative to `--samples`, see documentation for background. Using this argument, the
     /// sample subset can be provided as a file. Each line should contain the name of a sample.
-    /// Optionally, the file may contain a second, tab-delimited column with population identifiers.
+    /// Optionally, the file may contain a second, tab-delimited column with population
+    /// identifiers.
     #[arg(short = 'S', long = "samples-file", value_name = "FILE")]
     file: Option<PathBuf>,
 }
@@ -95,13 +95,14 @@ impl From<Samples> for site::reader::builder::Samples {
 struct Project {
     /// Projected individuals.
     ///
-    /// By default, any site with missing and/or multiallelic genotypes in the applied sample subset
-    /// will be skipped. Where this leads to too much missingness, the SFS can be projected to a
-    /// lower number of individuals using hypergeometric sampling. By doing so, all sites with data
-    /// for at least as this required shape will be used, and those with more data will be projected
-    /// down. Use a comma-separated list of values giving the new shape of the SFS. For example,
-    /// `--project-individuals 3,2` would project a two-dimensional SFS down to three individuals
-    /// in the first dimension and two in the second.
+    /// By default, any site with missing and/or multiallelic genotypes in the applied sample
+    /// subset will be skipped. Where this leads to too much missingness, the SFS can be
+    /// projected to a lower number of individuals using hypergeometric sampling. By doing so,
+    /// all sites with data for at least as this required shape will be used, and those with
+    /// more data will be projected down. Use a comma-separated list of values giving the new
+    /// shape of the SFS. For example, `--project-individuals 3,2` would project a
+    /// two-dimensional SFS down to three individuals in the first dimension and two in the
+    /// second.
     #[clap(
         short = 'p',
         long = "project-individuals",
@@ -112,10 +113,10 @@ struct Project {
 
     /// Projected shape.
     ///
-    /// Alternative to `--project-individuals`, see documentation for background. Using this argument, the
-    /// projection can be specified by shape, rather than number of individuals. For example,
-    /// `--project-shape 7,5` would project a two-dimensional SFS down to three diploid individuals
-    /// in the first dimension and two in the second.
+    /// Alternative to `--project-individuals`, see documentation for background. Using this
+    /// argument, the projection can be specified by shape, rather than number of individuals.
+    /// For example, `--project-shape 7,5` would project a two-dimensional SFS down to three
+    /// diploid individuals in the first dimension and two in the second.
     #[clap(
         long = "project-shape",
         use_value_delimiter = true,
@@ -156,7 +157,9 @@ impl Create {
 
         let sfs = Runner::new(reader, self.strict)?.run()?;
 
-        write_spectrum(&mut io::stdout(), &sfs, precision)?;
+        spectrum::io::write::Builder::default()
+            .set_precision(precision)
+            .write_to_stdout(&sfs)?;
 
         Ok(())
     }

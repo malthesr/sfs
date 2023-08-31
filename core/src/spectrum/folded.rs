@@ -4,6 +4,7 @@ use crate::Array;
 
 use super::{Scs, Spectrum, State};
 
+/// A folded spectrum.
 #[derive(Debug, PartialEq)]
 pub struct Folded<S: State> {
     array: Array<Option<f64>>, // "lower" triangle is None,
@@ -76,6 +77,8 @@ impl<S: State> Folded<S> {
         }
     }
 
+    /// Returns an unfolded spectrum based on the folded spectrum, filling the folded elements with
+    /// the provided element.
     pub fn into_spectrum(&self, fill: f64) -> Spectrum<S> {
         let data = Vec::from_iter(self.array.iter().map(|x| x.unwrap_or(fill)));
         let shape = self.array.shape().clone();
