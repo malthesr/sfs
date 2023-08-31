@@ -193,7 +193,8 @@ impl<S: State> Spectrum<S> {
 
     /// Normalizes the spectrum to frequencies in-place.
     ///
-    /// See also [`into_normalized`] to normalize and convert to an [`Sfs`] at the type-level.
+    /// See also [`Spectrum::into_normalized`] to normalize and convert to an [`Sfs`] at the
+    /// type-level.
     pub fn normalize(&mut self) {
         let sum = self.sum();
         self.array.iter_mut().for_each(|x| *x /= sum);

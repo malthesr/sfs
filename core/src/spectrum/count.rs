@@ -4,7 +4,7 @@ use crate::array::Shape;
 
 /// An allele count.
 ///
-/// This corresponds to an index in a [`Spectrum`].
+/// This corresponds to an index in a [`Spectrum`](crate::Spectrum).
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Count(pub Vec<usize>);
 
