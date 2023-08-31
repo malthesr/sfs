@@ -15,6 +15,7 @@ use sfs_core::{
 /// mask monomorphic > normalization. To control the order of operations differently, chain
 /// together multiple commands by piping in the desired order.
 #[derive(Debug, Parser)]
+#[clap(name = crate::NAME, about)]
 pub struct View {
     /// Input SFS.
     ///

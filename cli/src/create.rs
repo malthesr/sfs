@@ -15,6 +15,7 @@ use sfs_core::{
 
 /// Create SFS from VCF/BCF.
 #[derive(Debug, Parser)]
+#[clap(name = crate::NAME, about)]
 pub struct Create {
     /// Input VCF/BCF.
     ///

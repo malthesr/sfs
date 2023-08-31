@@ -8,6 +8,7 @@ use sfs_core::{spectrum, Input};
 
 /// Fold SFS.
 #[derive(Debug, Parser)]
+#[clap(name = crate::NAME, about)]
 pub struct Fold {
     /// Input SFS.
     ///

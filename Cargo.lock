@@ -624,7 +624,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sfs"
+name = "sfs-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",

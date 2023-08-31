@@ -9,14 +9,11 @@ use sfs_core::{
 };
 
 mod runner;
-use runner::Runner;
-
-use self::runner::StatisticWithOptions;
+use runner::{Runner, StatisticWithOptions};
 
 /// Calculate statistics from SFS.
-///
-///
 #[derive(Debug, Parser)]
+#[clap(name = crate::NAME, about)]
 pub struct Stat {
     /// Input SFS.
     ///

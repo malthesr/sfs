@@ -18,9 +18,9 @@ use stat::Stat;
 mod view;
 use view::View;
 
-const NAME: &str = env!("CARGO_BIN_NAME");
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
+pub(crate) const NAME: &str = env!("CARGO_BIN_NAME");
+pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub(crate) const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
 
 /// Tools for working with site frequency spectra.
 #[derive(Debug, Parser)]
