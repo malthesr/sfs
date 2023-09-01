@@ -55,6 +55,14 @@ cargo install --git https://github.com/malthesr/sfs
 
 Pre-built binaries are available from the [releases][releases] page ([linux][linux-binary], [mac][mac-binary], [windows][windows-binary]).
 
+For a one-liner, something like the following should work in a UNIX environment:
+
+```shell
+curl -s -L $url | tar xvz -O > $dest
+```
+
+Where `$url` is chosen from above, and `$dest` is the resulting binary, e.g. `$HOME/bin/sfs`.
+
 [releases]: https://github.com/malthesr/sfs/releases/latest/
 [linux-binary]: https://github.com/malthesr/sfs/releases/latest/download/sfs-x86_64-unknown-linux-gnu.tar.gz
 [mac-binary]: https://github.com/malthesr/sfs/releases/latest/download/sfs-x86_64-apple-darwin.tar.gz
