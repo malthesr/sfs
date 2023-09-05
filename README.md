@@ -10,7 +10,9 @@ The README is currently under construction. Usage and examples will be added soo
     1. [From source](#from-source)
 	    1. [Latest release](#latest-release)
 	    2. [Current git](#current-git)
-    1. [Pre-built](#pre-built)
+    2. [Pre-built](#pre-built)
+    3. [Conda](#conda)
+    4. [Docker](#docker)
 
 ## Installation
 
@@ -63,8 +65,29 @@ curl -s -L $url | tar xvz -O > $dest
 
 Where `$url` is chosen from above, and `$dest` is the resulting binary, e.g. `$HOME/bin/sfs`.
 
+### Conda
+
+`sfs` is available via [`conda`][conda] on the BioConda channel:
+
+```shell
+conda install -c bioconda sfs
+```
+
+### Docker
+
+A docker image is automatically built by BioContainers from the BioConda recipe and hosted on [Quay.io][quay]:
+
+```shell
+docker pull quay.io/biocontainers/sfs:$tag
+```
+
+With `$tag` chosen among the [available tags][quay-tags].
+
 [releases]: https://github.com/malthesr/sfs/releases/latest/
 [linux-binary]: https://github.com/malthesr/sfs/releases/latest/download/sfs-x86_64-unknown-linux-gnu.tar.gz
 [mac-binary]: https://github.com/malthesr/sfs/releases/latest/download/sfs-x86_64-apple-darwin.tar.gz
 [windows-binary]: https://github.com/malthesr/sfs/releases/latest/download/sfs-x86_64-pc-windows-msvc.zip
 [rust-installation]: https://www.rust-lang.org/tools/install
+[conda]: https://anaconda.org/bioconda/sfs
+[quay]: https://quay.io/repository/biocontainers/sfs
+[quay-tags]: https://quay.io/repository/biocontainers/sfs?tab=tags
